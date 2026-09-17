@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript
 ## Orquestra seleção opcional, coleta e análise em sequência.
-## Sem --select, a amostra versionada é preservada e o checkpoint pode ser usado offline.
+## Sem --select, preserva a amostra versionada e usa o checkpoint para retomar a coleta.
 
+# Resolve a raiz do projeto antes de carregar os três módulos do pipeline.
 script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
 script_path <- if (length(script_arg)) sub("^--file=", "", script_arg[[1L]]) else file.path("scripts", "run_pipeline.R")
 project_root <- if (file.exists(script_path)) normalizePath(file.path(dirname(script_path), ".."), mustWork = TRUE) else getwd()
@@ -14,6 +15,8 @@ run_collection_function <- run_collection
 source(file.path(project_root, "functions", "analyze.R"))
 run_analysis_function <- run_analysis
 
+# Interpreta as opções do pipeline e define entrada, saída, trabalhadores e
+# se uma nova seleção da amostra deve ser executada.
 parse_pipeline_options <- function(args) {
   values <- list(input = sample_path(), workers = 1L, output = output_root_path(), select = FALSE)
   index <- 1L
@@ -34,6 +37,8 @@ parse_pipeline_options <- function(args) {
   values
 }
 
+# Executa as etapas na ordem necessária, reutilizando a amostra e o checkpoint
+# quando a seleção explícita não foi solicitada.
 options_pipeline <- parse_pipeline_options(commandArgs(trailingOnly = TRUE))
 if (options_pipeline$select) {
   run_selection_function(list(input = "", output = options_pipeline$input))

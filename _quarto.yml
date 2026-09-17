@@ -11,6 +11,7 @@ execute:
 website:
   title: "Documentação de privacidade em projetos de IA/ML"
   site-url: https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/
+  favicon: site/favicon.png
   navbar:
     background: primary
     left:

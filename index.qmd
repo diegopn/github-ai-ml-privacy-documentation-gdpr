@@ -4,11 +4,14 @@ subtitle: "Projetos open source de IA/ML observados antes e depois do início da
 ---
 
 ```{r}
-# Carrega os artefatos versionados usados em todas as seções da página.
+# Carrega os artefatos versionados usados nas seções da página para que os
+# números exibidos sejam derivados dos mesmos arquivos publicados no repositório.
 stats <- jsonlite::read_json("outputs/metadata/statistics.json", simplifyVector = FALSE)
 sample <- read.csv("inputs/final/selected_repositories.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
 dataset <- read.csv("outputs/tables/final_privacy_gdpr_dataset.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
 
+# Formata p-valores em notação decimal fixa com vírgula, evitando a notação
+# científica e mantendo a leitura consistente entre texto e tabelas.
 fmt_p <- function(value) {
   formatC(
     as.numeric(value),
@@ -80,7 +83,8 @@ O PDE Score médio passou de `r sprintf("%.3f", pre_score)` para
 ### Presença documental (D1)
 
 ```{r, echo=FALSE, fig.width=7, fig.height=4}
-# Compara as contagens D1 nos dois snapshots históricos.
+# Compara visualmente as contagens de D1 nos dois snapshots históricos e usa
+# as mesmas contagens calculadas no objeto estatístico exibido acima.
 barplot(
   c(as.numeric(r1$pre_ones), as.numeric(r1$post_ones)),
   names.arg = c("Pré-GDPR", "Pós-GDPR"),
@@ -102,7 +106,8 @@ barplot(
 ### PDE Score
 
 ```{r, echo=FALSE, fig.width=7, fig.height=4}
-# Mostra a frequência de cada critério no período pós-GDPR.
+# Mostra a frequência de cada critério no período pós-GDPR, permitindo comparar
+# a presença documental dos itens C1 a C7.
 barplot(
   post_frequency,
   names.arg = codes,
@@ -135,7 +140,8 @@ knitr::kable(criteria, format = "html", caption = "Frequência de C1 a C7")
 ### Transições observadas em D1
 
 ```{r}
-# A tabela resume as quatro transições possíveis entre os períodos.
+# Resume as quatro transições possíveis de D1 entre os períodos e preserva os
+# rótulos dos fatores para que a matriz fique legível na página.
 has_pair <- dataset$pre_D1 != "" & dataset$post_D1 != ""
 transition <- table(
   factor(dataset$pre_D1[has_pair], levels = c("0", "1")),

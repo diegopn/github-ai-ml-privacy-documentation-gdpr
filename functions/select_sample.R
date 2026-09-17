@@ -22,7 +22,8 @@ SELECTION_SEARCH_PAGE_SIZE <- 100L
 SELECTION_MAX_SEARCH_PAGES <- 10L
 SELECTION_SEARCH_INTERVAL <- 2.2
 
-# Os argumentos permitem gerar uma nova amostra ou revalidar um CSV existente.
+# Interpreta os argumentos que selecionam um novo conjunto de repositórios ou
+# revalidam um CSV existente quanto à visibilidade e à licença atual.
 parse_selection_options <- function(args) {
   values <- list(input = "", output = sample_path())
   index <- 1L
@@ -38,6 +39,8 @@ parse_selection_options <- function(args) {
   values
 }
 
+# Lê a lista versionada de identificadores SPDX aprovados pela OSI e remove
+# comentários e linhas vazias antes de ela ser usada nos filtros.
 read_approved_spdx <- function(path = reference_spdx_path()) {
   if (!file.exists(path)) stop(sprintf("Lista SPDX/OSI não encontrada: %s", path))
   values <- trimws(readLines(path, encoding = "UTF-8", warn = FALSE))
@@ -46,6 +49,8 @@ read_approved_spdx <- function(path = reference_spdx_path()) {
   unique(values)
 }
 
+# Converte datas da API do GitHub para POSIXct em UTC, aceitando os formatos
+# completos e alternativos retornados pelos endpoints.
 selection_time <- function(value) {
   value <- scalar_text(value, "")
   if (!nzchar(value)) return(as.POSIXct(NA, tz = "UTC"))
@@ -54,10 +59,13 @@ selection_time <- function(value) {
   parsed
 }
 
+# Formata uma data POSIXct em ISO 8601 UTC para persistência no CSV da amostra.
 format_selection_time <- function(value) {
   if (length(value) == 0L || is.na(value)) "" else format(value, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
 }
 
+# Executa uma chamada da API usada pela seleção e interrompe a seleção quando
+# o GitHub devolve um status fora da faixa de sucesso.
 selection_api <- function(path, params, token, return_headers = FALSE) {
   response <- github_api(path, params, token, return_headers = return_headers)
   if (response$status < 200L || response$status >= 300L) {
@@ -66,6 +74,8 @@ selection_api <- function(path, params, token, return_headers = FALSE) {
   response
 }
 
+# Obtém o número da última página a partir do cabeçalho Link da API, permitindo
+# consultar o commit mais antigo sem baixar toda a história.
 last_page_from_headers <- function(headers) {
   link <- grep("^Link:", headers, value = TRUE, ignore.case = TRUE)
   if (!length(link)) return(1L)
@@ -74,6 +84,8 @@ last_page_from_headers <- function(headers) {
   if (length(captured) >= 2L) as.integer(captured[[2L]]) else 1L
 }
 
+# Extrai a data do committer, usando a data do author como fallback quando
+# o payload do commit não traz a primeira informação.
 commit_date <- function(commit) {
   details <- commit$commit %||% list()
   committer <- details$committer %||% list()
@@ -81,8 +93,11 @@ commit_date <- function(commit) {
   selection_time(scalar_text(committer$date, scalar_text(author$date, "")))
 }
 
+# Monta o endpoint de commits de um repositório específico.
 commits_path <- function(repository) paste0("/repos/", repository, "/commits")
 
+# Consulta a contagem de issues reais, separada de pull requests, para aplicar
+# o limiar mínimo definido pelo protocolo de seleção.
 count_real_issues <- function(repository, token) {
   response <- selection_api(
     "/search/issues",
@@ -92,6 +107,8 @@ count_real_issues <- function(repository, token) {
   scalar_int(response$body$total_count, 0L)
 }
 
+# Recupera o primeiro e o último commit acessíveis e calcula a duração total
+# da atividade do repositório em meses.
 commit_activity <- function(repository, token) {
   path <- commits_path(repository)
   newest <- selection_api(path, list(per_page = 1L), token, return_headers = TRUE)
@@ -112,6 +129,8 @@ commit_activity <- function(repository, token) {
   )
 }
 
+# Verifica se existe ao menos um commit antes e outro depois da data da GDPR,
+# condição necessária para a comparação histórica pareada.
 activity_window <- function(repository, token) {
   path <- commits_path(repository)
   pre <- selection_api(path, list(until = SELECTION_GDPR_DATE, per_page = 1L), token)$body
@@ -122,6 +141,8 @@ activity_window <- function(repository, token) {
   )
 }
 
+# Busca repositórios públicos de um tópico, aplicando os filtros básicos e
+# paginação limitada para evitar depender de resultados além do limite da API.
 search_by_topic <- function(topic, token) {
   query <- paste0(
     "is:public topic:", topic,
@@ -146,6 +167,8 @@ search_by_topic <- function(topic, token) {
   list(repositories = repositories, capped = capped)
 }
 
+# Combina os resultados dos tópicos, remove duplicatas e conserva todos os
+# tópicos que justificaram a entrada de cada repositório como candidato.
 search_candidates <- function(token) {
   candidates <- list()
   names_in_order <- character()
@@ -167,16 +190,21 @@ search_candidates <- function(token) {
   list(candidates = unname(candidates[names_in_order]), capped = capped)
 }
 
+# Confirma a visibilidade pública usando o campo explícito ou, como fallback,
+# o indicador private retornado pela API.
 is_public_repository <- function(repository) {
   visibility <- scalar_text(repository$visibility, "")
   if (nzchar(visibility)) return(tolower(visibility) == "public")
   !scalar_bool(repository$private, TRUE)
 }
 
+# Registra no console o motivo pelo qual um candidato não passou na seleção.
 reject_selection <- function(reason) {
   cat(sprintf("  [REJEITADO] %s\n", reason))
 }
 
+# Avalia um candidato contra todos os critérios de inclusão e devolve os
+# metadados normalizados quando ele é aprovado; candidatos rejeitados retornam NULL.
 evaluate_candidate <- function(candidate, approved_ids, token) {
   repository <- candidate$repository
   full_name <- scalar_text(repository$full_name, "")
@@ -249,6 +277,8 @@ evaluate_candidate <- function(candidate, approved_ids, token) {
   )
 }
 
+# Converte a lista de registros selecionados em um data.frame com schema e
+# ordem de colunas estáveis para o CSV versionado da amostra.
 records_to_selection_data_frame <- function(records) {
   columns <- c(
     "repository", "url", "name", "owner", "description", "language",
@@ -262,12 +292,15 @@ records_to_selection_data_frame <- function(records) {
   as.data.frame(values, stringsAsFactors = FALSE, check.names = FALSE)
 }
 
+# Cria o diretório de destino e grava a amostra selecionada em CSV UTF-8.
 write_selection <- function(records, path) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   write.csv(records_to_selection_data_frame(records), path, row.names = FALSE, fileEncoding = "UTF-8", na = "")
   cat(sprintf("Amostra gravada em %s (%d repositórios).\n", normalizePath(path, mustWork = FALSE), length(records)))
 }
 
+# Executa a busca e a avaliação completa, informando o progresso e persistindo
+# apenas os candidatos que satisfazem todos os critérios de inclusão.
 run_full_selection <- function(output, token, approved_ids) {
   found <- search_candidates(token)
   cat(sprintf("Candidatos únicos encontrados: %d\n", length(found$candidates)))
@@ -293,7 +326,8 @@ run_full_selection <- function(output, token, approved_ids) {
   invisible(output)
 }
 
-# Revalida um CSV existente apenas quanto à visibilidade e licença atual.
+# Revalida um CSV existente quanto à visibilidade pública e à licença SPDX/OSI
+# atual, mantendo as demais colunas da amostra original.
 revalidate_selection <- function(input, output, token, approved_ids) {
   sample <- read_sample(input)
   if (!"repository" %in% names(sample)) stop("O CSV precisa da coluna repository.")
@@ -324,6 +358,8 @@ revalidate_selection <- function(input, output, token, approved_ids) {
   invisible(output)
 }
 
+# Escolhe entre gerar uma nova amostra e revalidar uma amostra existente,
+# carregando o token e a lista de licenças aprovadas necessários para a operação.
 run_selection <- function(options) {
   token <- Sys.getenv("GITHUB_TOKEN", unset = "")
   if (!nzchar(token)) token <- read_dotenv_token()

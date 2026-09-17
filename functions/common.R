@@ -11,7 +11,8 @@ if (!requireNamespace("yaml", quietly = TRUE)) {
   stop("O pacote 'yaml' é necessário. Instale-o com install.packages('yaml').")
 }
 
-# Permite executar scripts a partir de qualquer diretório e ainda localizar a raiz.
+# Localiza a raiz do projeto a partir do script em execução ou do diretório atual.
+# Sobe pela árvore de pastas até encontrar settings.yml ou o diretório .git.
 find_project_root <- function() {
   file_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   current <- if (length(file_argument)) {
@@ -32,19 +33,24 @@ find_project_root <- function() {
 
 PROJECT_ROOT <- find_project_root()
 
-## Valor padrão para listas JSON ou YAML em que um campo pode estar ausente.
+# Devolve um valor alternativo quando uma lista JSON/YAML não traz o campo esperado.
+# O operador mantém os acessos encadeados legíveis sem alterar valores válidos.
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0L) y else x
 
 SETTINGS <- yaml::read_yaml(file.path(PROJECT_ROOT, "settings.yml"))
 
+# Lê uma configuração de SETTINGS e aplica um padrão quando seção ou chave não existem.
 setting <- function(section, key, default = NULL) {
   values <- SETTINGS[[section]] %||% list()
   value <- values[[key]]
   if (is.null(value) || length(value) == 0L) default else value
 }
 
+# Monta um caminho absoluto relativo à raiz detectada do projeto.
 project_path <- function(...) file.path(PROJECT_ROOT, ...)
 
+# Converte caminhos relativos para a raiz do projeto, preservando caminhos absolutos
+# e a expansão explícita de ~ fornecida pelo usuário.
 resolve_project_path <- function(path) {
   path <- as.character(path %||% "")[[1L]]
   if (!nzchar(path)) return(path)
@@ -53,6 +59,7 @@ resolve_project_path <- function(path) {
   project_path(path)
 }
 
+# Retorna o caminho relativo ao projeto para registros, relatórios e manifestos.
 project_relative <- function(path) {
   absolute <- normalizePath(path, mustWork = FALSE)
   root <- normalizePath(PROJECT_ROOT, mustWork = FALSE)
@@ -60,17 +67,27 @@ project_relative <- function(path) {
   if (startsWith(absolute, prefix)) substring(absolute, nchar(prefix) + 1L) else absolute
 }
 
+# Lê um caminho configurável e o transforma em um caminho absoluto do projeto.
 path_setting <- function(name, default) {
   value <- setting("paths", name, default)
   if (is.list(value)) value <- value[[1L]]
   project_path(as.character(value))
 }
 
+# Retorna o caminho absoluto do CSV congelado usado como amostra de entrada.
 sample_path <- function() path_setting("sample", "inputs/final/selected_repositories.csv")
+
+# Retorna o caminho absoluto do checkpoint JSONL com os registros brutos coletados.
 raw_checkpoint_path <- function() path_setting("raw_checkpoint", "inputs/raw/repository_results.jsonl")
+
+# Retorna o caminho absoluto da lista de licenças SPDX/OSI aprovada usada na seleção.
 reference_spdx_path <- function() path_setting("reference_spdx", "inputs/reference/osi_approved_spdx_ids.txt")
+
+# Retorna o diretório-raiz onde a análise grava tabelas, figuras e metadados.
 output_root_path <- function() path_setting("output_root", "outputs")
 
+# Organiza o diretório de saída em subpastas previsíveis para tabelas, figuras,
+# relatórios e metadados derivados da execução.
 output_paths <- function(output = output_root_path()) {
   root <- resolve_project_path(output)
   list(
@@ -219,8 +236,8 @@ RULES <- list(
   )
 )
 
-## JSON pode representar o mesmo campo como lista, vetor ou valor escalar.
-## Estas funções normalizam esses casos antes de qualquer comparação.
+# Extrai o primeiro valor útil de estruturas JSON/YAML que podem chegar como lista,
+# vetor ou escalar, evitando tratamentos diferentes em cada etapa do pipeline.
 scalar <- function(x, default = "") {
   if (is.null(x) || length(x) == 0L) return(default)
   if (is.list(x)) x <- x[[1L]]
@@ -228,17 +245,20 @@ scalar <- function(x, default = "") {
   x[[1L]]
 }
 
+# Converte o primeiro valor disponível para texto e substitui ausências por default.
 scalar_text <- function(x, default = "") {
   value <- scalar(x, default)
   if (is.null(value) || length(value) == 0L || is.na(value)) return(default)
   as.character(value)
 }
 
+# Converte o primeiro valor disponível para inteiro, usando default para valores inválidos.
 scalar_int <- function(x, default = 0L) {
   value <- suppressWarnings(as.integer(scalar(x, default)))
   if (is.na(value)) default else value
 }
 
+# Normaliza representações lógicas vindas do JSON, YAML ou CSV, como true, 1 e yes.
 scalar_bool <- function(x, default = FALSE) {
   value <- scalar(x, default)
   if (is.logical(value)) return(isTRUE(value))
@@ -249,25 +269,28 @@ scalar_bool <- function(x, default = FALSE) {
   else default
 }
 
-# Executa uma expressão regular sem interromper a análise por uma expressão
-# inválida ou por um campo textual ausente.
+# Executa uma expressão regular sem interromper a análise por padrão inválido
+# ou campo textual ausente; retorna FALSE nesses casos.
 safe_grepl <- function(pattern, text) {
   if (is.null(text) || !length(text) || is.na(text)) return(FALSE)
   tryCatch(grepl(pattern, text, ignore.case = TRUE, perl = TRUE), error = function(...) FALSE)
 }
 
+# Verifica se ao menos um padrão da lista aparece no texto informado.
 matches_any <- function(patterns, text) {
   length(patterns) > 0L && any(vapply(patterns, safe_grepl, logical(1L), text = text))
 }
 
-# O hash identifica exatamente a amostra usada para gerar cada checkpoint.
+# Calcula o SHA-256 de um arquivo para identificar exatamente a entrada usada
+# na geração de cada checkpoint e permitir a validação posterior.
 sha256_file <- function(path) {
   result <- system2("sha256sum", c(path), stdout = TRUE, stderr = TRUE)
   if (!length(result)) stop(sprintf("Não foi possível calcular SHA-256 de %s.", path))
   sub("[[:space:]].*$", "", result[[1L]])
 }
 
-# O conteúdo de cada documento também recebe hash para auditoria posterior.
+# Calcula o SHA-256 do conteúdo textual de um documento sem deixar arquivo
+# temporário persistente no projeto.
 sha256_text <- function(text) {
   temporary <- tempfile(fileext = ".txt")
   on.exit(unlink(temporary), add = TRUE)
@@ -275,7 +298,8 @@ sha256_text <- function(text) {
   sha256_file(temporary)
 }
 
-# Lê a amostra fechada, preservando os nomes das colunas e os textos UTF-8.
+# Lê a amostra congelada, preservando os nomes das colunas e os textos UTF-8.
+# Valores NA são convertidos para texto vazio para manter o schema estável.
 read_sample <- function(path) {
   if (!file.exists(path)) stop(sprintf("Arquivo de entrada não encontrado: %s", path))
   result <- read.csv(
@@ -287,7 +311,8 @@ read_sample <- function(path) {
   result
 }
 
-# Impede que uma amostra diferente dos critérios de seleção seja processada.
+# Verifica as colunas obrigatórias e confirma que todos os repositórios têm
+# licença SPDX identificada e aprovada pela OSI antes de iniciar a coleta.
 validate_open_source_sample <- function(sample) {
   required <- c("repository", "license_spdx_id", "license_osi_approved")
   missing <- setdiff(required, names(sample))
@@ -302,8 +327,8 @@ validate_open_source_sample <- function(sample) {
   invisible(TRUE)
 }
 
-# O formato JSONL permite gravar cada repositório assim que ele termina.
-# Se a execução for interrompida, os registros já escritos continuam válidos.
+# Acrescenta registros ao checkpoint JSONL, um objeto por linha, para que cada
+# repositório seja persistido assim que termina e possa ser retomado depois.
 write_jsonl <- function(records, path, append = TRUE) {
   con <- file(path, open = if (append) "a" else "w", encoding = "UTF-8")
   on.exit(close(con), add = TRUE)
@@ -313,7 +338,8 @@ write_jsonl <- function(records, path, append = TRUE) {
   }
 }
 
-# Reabre o checkpoint linha a linha para permitir retomada e análise offline.
+# Reabre o checkpoint linha a linha, validando o JSON e mantendo a análise
+# offline independente de novas chamadas à API.
 read_jsonl <- function(path) {
   if (!file.exists(path)) return(list())
   lines <- readLines(path, encoding = "UTF-8", warn = FALSE)
@@ -327,7 +353,8 @@ read_jsonl <- function(path) {
   })
 }
 
-# Indexa o checkpoint por repositório e restaura a ordem da amostra depois.
+# Indexa os registros pelo nome do repositório para acesso rápido e posterior
+# restauração da ordem original da amostra.
 index_records <- function(records) {
   result <- list()
   for (record in records) {
@@ -337,7 +364,8 @@ index_records <- function(records) {
   result
 }
 
-# Permite usar um token local sem colocá-lo no código-fonte.
+# Lê GITHUB_TOKEN de um arquivo .env local, sem incluir o segredo no código
+# ou nos arquivos versionados do projeto.
 read_dotenv_token <- function(path = project_path(".env")) {
   if (!file.exists(path)) return("")
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
@@ -347,9 +375,8 @@ read_dotenv_token <- function(path = project_path(".env")) {
   sub("^[\"']|[\"']$", "", trimws(token))
 }
 
-# Cliente HTTP mínimo. A API pode responder com limites temporários ou erros
-# transitórios; por isso a função repete a chamada com espera crescente.
-# Cabeçalhos podem ser retornados quando uma etapa precisa ler a paginação.
+# Executa requisições HTTP com cabeçalhos do GitHub, tentativas repetidas e
+# espera crescente para erros transitórios; opcionalmente também devolve headers.
 http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L, return_headers = FALSE) {
   body_path <- tempfile(fileext = ".body")
   status_path <- tempfile(fileext = ".status")
@@ -408,13 +435,15 @@ http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L, 
   result
 }
 
-# Codifica cada componente do caminho sem transformar as barras em texto.
+# Codifica cada componente de um caminho da API sem transformar as barras
+# separadoras em texto, preservando a estrutura esperada pelo GitHub.
 encode_path <- function(path) {
   parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
   paste(vapply(parts, utils::URLencode, character(1L), reserved = TRUE), collapse = "/")
 }
 
-# Monta chamadas JSON autenticadas para a API do GitHub.
+# Monta a URL da API do GitHub com query parameters, delegando a autenticação,
+# tentativas e interpretação da resposta ao cliente HTTP compartilhado.
 github_api <- function(path, params = list(), token = "", return_headers = FALSE) {
   query <- if (length(params)) {
     paste(
@@ -426,7 +455,8 @@ github_api <- function(path, params = list(), token = "", return_headers = FALSE
   http_request(url, token = token, parse_json = TRUE, return_headers = return_headers)
 }
 
-# Baixa o arquivo fixado por commit, evitando usar o estado atual do branch.
+# Baixa o conteúdo de um arquivo fixado por SHA de commit, evitando que o
+# estado atual do branch altere os documentos usados no snapshot histórico.
 github_raw <- function(repository, sha, path, token = "") {
   url <- paste0("https://raw.githubusercontent.com/", repository, "/", sha, "/", encode_path(path))
   response <- http_request(url, token = token, parse_json = FALSE)
@@ -437,21 +467,23 @@ github_raw <- function(repository, sha, path, token = "") {
   )
 }
 
-## Retorna somente o nome final de um caminho Git.
+# Extrai apenas o nome final de um caminho Git, sem os diretórios anteriores.
+# É usado para aplicar regras pelo nome do arquivo independentemente de sua pasta.
 file_name <- function(path) {
   parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
   parts[[length(parts)]]
 }
 
-# Apenas documentos textuais podem ser analisados; código binário é ignorado.
+# Verifica se o caminho aponta para um documento textual elegível à análise.
+# Arquivos binários e extensões não previstas são ignorados antes do download.
 is_text_document <- function(path) {
   lower <- tolower(path)
   name <- file_name(lower)
   name %in% c("readme", "license", "copying") || any(vapply(TEXT_EXTENSIONS, function(extension) endsWith(lower, extension), logical(1L)))
 }
 
-# Seleciona README e arquivos cujo nome indica privacidade, segurança ou
-# conformidade. A ordenação torna a coleta determinística.
+# Seleciona blobs textuais candidatos, priorizando README de raiz e arquivos
+# cujo nome indica privacidade, segurança ou conformidade em ordem determinística.
 document_candidates <- function(tree) {
   entries <- tree$tree %||% list()
   if (!is.list(entries) || !length(entries)) return(list())
@@ -482,7 +514,8 @@ document_candidates <- function(tree) {
   values[order_index]
 }
 
-# Divide o documento em unidades curtas para que o contexto seja local.
+# Divide o documento em frases ou linhas curtas para manter o contexto da
+# evidência próximo ao termo encontrado durante a classificação.
 text_units <- function(text) {
   if (is.null(text) || !nzchar(text)) return(character())
   value <- gsub("\\r", " ", text, fixed = TRUE)
@@ -491,7 +524,8 @@ text_units <- function(text) {
   units[nzchar(units)]
 }
 
-# Remove URLs, imagens e marcação antes de procurar termos semânticos.
+# Remove URLs, imagens, tags e marcação Markdown antes da busca semântica.
+# O texto resultante é normalizado para uma comparação mais estável.
 clean_for_matching <- function(text) {
   value <- gsub("https?://[^\\s\"')>]+", " ", text, perl = TRUE)
   value <- gsub("!\\[[^]]*\\]\\([^)]*\\)", " ", value, perl = TRUE)
@@ -500,7 +534,8 @@ clean_for_matching <- function(text) {
   trimws(gsub("\\s+", " ", value, perl = TRUE))
 }
 
-# Guarda um trecho centrado no termo encontrado, útil para revisão humana.
+# Recorta até 650 caracteres ao redor do primeiro termo encontrado para gerar
+# uma evidência curta, legível e útil à revisão manual.
 centered_snippet <- function(value, primary) {
   starts <- integer()
   ends <- integer()
@@ -518,8 +553,8 @@ centered_snippet <- function(value, primary) {
   trimws(substr(value, start, end))
 }
 
-# Procura o primeiro bloco que contém o termo primário, o contexto e todos os
-# grupos obrigatórios. A janela inclui duas unidades antes e duas depois.
+# Procura a primeira janela textual que contém o termo primário, o contexto e
+# os grupos obrigatórios; a janela inclui até duas unidades antes e depois.
 find_evidence <- function(text_values, primary, context = character(), required_groups = list(), accepted = function(...) TRUE) {
   if (!length(text_values)) return("")
   for (index in seq_along(text_values)) {
@@ -536,8 +571,8 @@ find_evidence <- function(text_values, primary, context = character(), required_
   ""
 }
 
-# C1 aceita categorias concretas ou dados nomeados associados a uma operação
-# de tratamento, reduzindo falsos positivos causados por menções genéricas.
+# Valida evidências de C1 exigindo uma categoria concreta ou dados nomeados
+# associados a uma operação de tratamento, reduzindo falsos positivos genéricos.
 is_c1_evidence <- function(snippet) {
   concrete <- safe_grepl("\\b(?:email|e-mail|ip address|mailing address|cookies?|authentication credentials|license plate(?: data)?|health data|location data)\\b", snippet)
   named <- safe_grepl("\\b(?:personal|user|customer|usage|account) data\\b|\\bpersonal information\\b|\\bPII\\b|data subject", snippet)
@@ -545,12 +580,14 @@ is_c1_evidence <- function(snippet) {
   concrete || (named && processing)
 }
 
-# C4 exige um direito ou procedimento explicitamente ligado ao titular.
+# Valida C4 quando o trecho menciona um direito ou procedimento explicitamente
+# ligado ao titular, como acesso, correção, exclusão ou portabilidade.
 is_c4_evidence <- function(snippet) {
   safe_grepl("right[s]?\\s+(?:of|to)\\s+(?:data )?subjects?|right to (?:access|rectification|erasure|deletion|portability|object|withdraw)|data subject rights|your right|withdraw (?:your )?consent|(?:modify|access|retrieve|correct|delete)[^.;\\n]{0,100}personal data|users? can delete[^.;\\n]{0,100}(?:data|accounts?)|data deleted from", snippet)
 }
 
-# Fallback para padrões que não dependem da janela normal de unidades textuais.
+# Procura diretamente um padrão no documento quando a divisão em unidades não
+# consegue formar uma janela de contexto adequada para a evidência.
 direct_snippet <- function(text, pattern) {
   match <- tryCatch(regexpr(pattern, text, ignore.case = TRUE, perl = TRUE), error = function(...) -1L)
   if (length(match) && match[[1L]] > 0L) {
@@ -561,43 +598,50 @@ direct_snippet <- function(text, pattern) {
   ""
 }
 
-# O nome do arquivo também pode identificar uma política dedicada.
+# Identifica pelo nome do arquivo políticas ou documentos dedicados à privacidade,
+# proteção de dados, GDPR ou cookies.
 is_dedicated_privacy_document <- function(path) {
   safe_grepl("privacy|gdpr|data[-_ ]?protection|personal[-_ ]?data|cookie[-_ ]?policy", file_name(tolower(path)))
 }
 
-# C2-C6 exigem vínculo explícito com privacidade, dados pessoais ou titulares.
+# Confirma que o trecho de C2-C6 está ligado a privacidade, dados pessoais ou
+# titulares, pelo conteúdo ou pelo caminho de um documento dedicado.
 has_privacy_criterion_context <- function(snippet, path) {
   is_dedicated_privacy_document(path) ||
     safe_grepl("privacy|gdpr|personal data|personal information|personally identifiable|\\bPII\\b|data subject|user data|customer data|private data|anonymous user data|license plate data", snippet) ||
     safe_grepl("security[-_ ]and[-_ ]privacy|privacy[-_ ]and[-_ ]security|(?:^|/)privacy(?:[-_/]|$)", path)
 }
 
-# Dados declarados apenas como anônimos não são contados como dados pessoais.
+# Detecta quando um trecho fala somente de dados anônimos, sem indicar também
+# identificadores pessoais que justificariam a classificação em C1.
 is_anonymous_only <- function(snippet) {
   if (!safe_grepl("\\b(?:anonymous|anonymized|anonymised) (?:user |usage )?data\\b", snippet)) return(FALSE)
   !safe_grepl("personal|personally identifiable|\\bPII\\b|data subject|email address|ip address|cookies?|license plate|authentication credentials", snippet)
 }
 
-# Expiração de token ou cookie não é tratada como exclusão de dados pessoais.
+# Detecta falsos positivos em que expiração de token ou cookie aparece como
+# exclusão técnica, mas não há referência a dados pessoais ou contas.
 is_false_deletion_context <- function(snippet) {
   (safe_grepl("jwt|auth[_ ]manager|revoke[_ ]token|token expiration|cookie deletion", snippet) &&
      !safe_grepl("(?:personal|user|customer|account) data|data deleted|delete accounts?|retention", snippet))
 }
 
-# Compartilhar bibliotecas ou dependências não é compartilhamento de dados.
+# Detecta menções a compartilhamento de bibliotecas ou dependências que não
+# descrevem divulgação ou transferência de dados de pessoas.
 is_false_sharing_context <- function(snippet) {
   software_only <- safe_grepl("shared librar|third[- ]party dependenc|share\\.sh|build_release.*share", snippet)
   data_disclosure <- safe_grepl("(?:share|transfer|disclos)[^.]{0,50}(?:personal|user|customer|usage|training|private)? ?data|(?:personal|user|customer|usage|training|private) data[^.]{0,50}(?:share|transfer|disclos)", snippet)
   software_only && !data_disclosure
 }
 
-# Citações acadêmicas não constituem evidência sobre o próprio projeto.
+# Identifica referências bibliográficas para impedir que citações acadêmicas
+# sejam tratadas como evidência das práticas do próprio projeto.
 is_bibliographic_context <- function(snippet) {
   safe_grepl("proceedings|conference|journal|association for computing machinery|\\bdoi\\b|\\bet al\\.|\\bvolume\\s+\\d|\\bpages?\\s+\\d", snippet)
 }
 
-# Exclui listas de links e bibliografias sem contexto operacional do projeto.
+# Identifica unidades que são listas de links ou referências externas sem
+# linguagem operacional suficiente sobre o projeto analisado.
 is_external_resource_unit <- function(text) {
   has_link <- safe_grepl("https?://|!\\[|\\]\\(", text)
   if (!has_link) return(FALSE)
@@ -606,7 +650,8 @@ is_external_resource_unit <- function(text) {
   !safe_grepl(project_language, text)
 }
 
-# Exige linguagem do próprio projeto, uma política dedicada ou um mecanismo técnico.
+# Verifica se a evidência descreve o próprio projeto, uma política dedicada ou
+# um mecanismo técnico de privacidade, evitando atribuições fora de contexto.
 is_project_contextual <- function(snippet, path, repository) {
   if (is_dedicated_privacy_document(path)) return(TRUE)
   if (safe_grepl("(?:^|/)privacy(?:[-_/]|$)|security[-_ ]and[-_ ]privacy|privacy[-_ ]and[-_ ]security", path)) return(TRUE)
@@ -621,8 +666,8 @@ is_project_contextual <- function(snippet, path, repository) {
   safe_grepl("privacy[- ]preserv|homomorphic encrypt|secure multi[- ]party|encrypted data|data never leaves|on[- ]device|training data[^.]{0,120}this project|redact[^.]{0,100}(?:private|personal) data|(?:protect|secure|sandbox)[^.]{0,100}(?:model|framework|application)|(?:model|framework|application)[^.]{0,100}(?:protect|secure|sandbox)", snippet)
 }
 
-# Mantém README de raiz e políticas relevantes; exclui testes, datasets, exemplos
-# e dependências, que podem conter texto sem relação com a documentação do projeto.
+# Filtra os candidatos para manter README de raiz e políticas relevantes, mas
+# excluir testes, datasets, exemplos e dependências fora do contexto analisado.
 relevant_documents <- function(documents) {
   markers <- c("privacy", "security", "gdpr", "data-protection", "personal-data", "privacy-policy", "terms", "legal", "compliance", "retention", "consent", "subprocessor")
   excluded <- c("dataset", "datasets", "test", "tests", "fixture", "fixtures", "sample", "samples", "output", "outputs", "example", "examples", "node_modules", "vendor", "dist", "build")
@@ -642,8 +687,8 @@ relevant_documents <- function(documents) {
   values
 }
 
-# Recalcula C1-C7 e D1 somente sobre os documentos relevantes. Para cada critério,
-# a primeira evidência válida é preservada junto do SHA, arquivo e trecho textual.
+# Recalcula C1-C7 e D1 apenas nos documentos relevantes e conserva a primeira
+# evidência válida de cada critério com SHA, caminho do arquivo e trecho textual.
 classify_documents <- function(documents, sha = "", repository = "") {
   evidence <- list()
   weak <- FALSE
@@ -746,7 +791,8 @@ classify_documents <- function(documents, sha = "", repository = "") {
   )
 }
 
-# Schema estável do CSV final, usado para manter as colunas na mesma ordem.
+# Retorna o schema estável do CSV final, mantendo nomes e ordem das colunas
+# iguais em todas as execuções do analisador.
 dataset_columns <- function() {
   c(
     "repository", "url", "name", "owner", "description", "language", "input_license_spdx_id", "input_license_name", "input_license_osi_approved", "stars", "issues", "created_at",
@@ -757,10 +803,11 @@ dataset_columns <- function() {
   )
 }
 
-# Combina os metadados da amostra com o checkpoint e recalcula a classificação
-# para as duas versões históricas, preservando observações e evidências.
+# Combina a linha da amostra com o checkpoint e recalcula a classificação para
+# os snapshots pré e pós, retornando uma linha plana com observações e evidências.
 flatten_record <- function(row, record, row_number, source_hash) {
   output <- list()
+  # Copia um campo da amostra sem propagar valores ausentes para o dataset final.
   copy_field <- function(out, input) scalar_text(row[[input]], "")
   output$repository <- copy_field("repository", "repository")
   output$url <- copy_field("url", "url")
@@ -830,8 +877,8 @@ flatten_record <- function(row, record, row_number, source_hash) {
   output[dataset_columns()]
 }
 
-# Só entra nos testes pareados o registro com os dois SHAs e as duas árvores
-# Git recuperadas com HTTP 200; os demais permanecem identificados como incompletos.
+# Verifica se o registro possui os dois commits e as duas árvores Git recuperados
+# com HTTP 200; registros incompletos ficam no dataset, mas saem dos testes.
 is_complete_record <- function(record) {
   pre <- record$pre %||% list()
   post <- record$post %||% list()
@@ -840,7 +887,8 @@ is_complete_record <- function(record) {
     scalar_int(pre$tree_request_status, 0L) == 200L && scalar_int(post$tree_request_status, 0L) == 200L
 }
 
-# Interpolação type=7, padrão de quantile() e comum em análises estatísticas.
+# Calcula um percentil usando a interpolação type=7, padrão de quantile() no R,
+# ignorando valores não finitos e retornando NA quando não há observações.
 percentile_value <- function(values, probability) {
   values <- sort(as.numeric(values))
   values <- values[is.finite(values)]
@@ -848,8 +896,8 @@ percentile_value <- function(values, probability) {
   as.numeric(stats::quantile(values, probability, type = 7, names = FALSE))
 }
 
-# Calcula o p-valor bicaudal enumerando a distribuição binomial condicional
-# dos pares discordantes do teste de McNemar.
+# Calcula o p-valor bicaudal de McNemar pela distribuição binomial condicional
+# dos pares discordantes b e c.
 exact_mcnemar <- function(b, c) {
   n <- b + c
   if (!n) return(1)
@@ -857,8 +905,8 @@ exact_mcnemar <- function(b, c) {
   min(1, 2 * sum(vapply(0:lower, function(k) choose(n, k), numeric(1L))) / 2^n)
 }
 
-# Calcula a versão exata bicaudal do Wilcoxon pareado, removendo diferenças zero,
-# usando postos médios e a distribuição de todas as combinações de sinais.
+# Calcula o Wilcoxon pareado exato bicaudal, removendo diferenças zero, usando
+# postos médios e enumerando a distribuição de todas as combinações de sinais.
 wilcoxon_exact <- function(differences) {
   values <- differences[differences != 0]
   n <- length(values)
@@ -888,8 +936,8 @@ wilcoxon_exact <- function(differences) {
   )
 }
 
-# IC da mediana por bootstrap percentílico determinístico; a semente permite repetir
-# exatamente o mesmo resultado em outra execução.
+# Estima o intervalo de confiança percentílico de 95% para a mediana por
+# bootstrap determinístico; a semente permite reproduzir o mesmo resultado.
 bootstrap_median_ci <- function(values, seed = 20260908L, repetitions = 10000L) {
   values <- as.numeric(values)
   if (!length(values)) return(c(NA_real_, NA_real_))

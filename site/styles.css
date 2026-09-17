@@ -37,7 +37,7 @@ body {
 }
 
 body.nav-fixed {
-  padding-top: 76px;
+  padding-top: 76px !important;
 }
 
 a {
@@ -50,9 +50,24 @@ a:hover {
   color: var(--navy);
 }
 
-/* Cabeçalho fixo com a mesma combinação tipográfica do site principal. */
+/* Mantém o cabeçalho visível durante a rolagem, inclusive quando o Quarto
+   aplica as classes headroom que normalmente escondem a barra ao descer. */
 #quarto-header {
+  position: fixed !important;
+  top: 0;
+  right: 0;
+  left: 0;
+  width: 100%;
   z-index: 1030;
+  transform: translateY(0) !important;
+  visibility: visible !important;
+}
+
+#quarto-header.headroom,
+#quarto-header.headroom--pinned,
+#quarto-header.headroom--unpinned {
+  position: fixed !important;
+  transform: translateY(0) !important;
 }
 
 #quarto-header .navbar {
@@ -465,7 +480,7 @@ pre code {
 
 @media (max-width: 700px) {
   body.nav-fixed {
-    padding-top: 64px;
+    padding-top: 64px !important;
   }
 
   #quarto-header .navbar {

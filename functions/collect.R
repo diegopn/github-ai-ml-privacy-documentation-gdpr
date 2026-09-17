@@ -36,9 +36,9 @@ parse_options <- function(args) {
   values
 }
 
+# Mantém apenas os metadados necessários para auditoria, evitando copiar toda
+# a resposta da API para cada registro do checkpoint.
 compact_metadata <- function(body) {
-  # Mantém apenas metadados necessários para auditoria, evitando copiar toda a
-  # resposta da API para cada registro.
   if (!is.list(body)) return(list())
   metadata <- list()
   for (field in c("full_name", "visibility", "created_at", "updated_at")) metadata[[field]] <- scalar_text(body[[field]], "")
@@ -50,8 +50,9 @@ compact_metadata <- function(body) {
   metadata
 }
 
+# Extrai da resposta aninhada da API os campos estáveis de um commit, incluindo
+# SHA, datas, árvore Git, URL e a primeira linha da mensagem.
 commit_info <- function(payload) {
-  # Achata a resposta aninhada de commits em campos estáveis do checkpoint.
   commit <- payload$commit %||% list()
   author <- commit$author %||% list()
   committer <- commit$committer %||% list()
@@ -69,9 +70,9 @@ commit_info <- function(payload) {
   )
 }
 
+# Recupera o último commit dentro do limite temporal, sua árvore e os documentos
+# candidatos; também registra uma classificação preliminar para inspeção.
 collect_version <- function(repository, until, accessible, token) {
-  # Recupera o último commit no limite, sua árvore e os documentos candidatos;
-  # a classificação preliminar também fica registrada para inspeção do coletor.
   version <- list(until = until)
   if (!accessible) {
     version$error <- "versão não consultada porque a validação do repositório falhou"
@@ -111,9 +112,9 @@ collect_version <- function(repository, until, accessible, token) {
   version
 }
 
+# Monta um registro com metadados atuais e os dois snapshots históricos do mesmo
+# repositório, preservando a natureza pareada do experimento.
 collect_one <- function(row, source_hash, token) {
-  # Um registro contém metadados atuais e os dois snapshots históricos do mesmo
-  # repositório, preservando a natureza pareada do experimento.
   repository <- scalar_text(row$repository, "")
   result <- list(
     repository = repository,
@@ -134,15 +135,16 @@ collect_one <- function(row, source_hash, token) {
   result
 }
 
+# Confirma se um registro pode ser reutilizado: ele precisa vir da mesma amostra
+# e ter sido produzido pela versão atual do protocolo de coleta.
 is_reusable <- function(record, source_hash) {
-  # Um checkpoint só é reutilizado se veio da mesma amostra e deste protocolo.
   !is.null(record) && identical(scalar_text(record$source_sha256, ""), source_hash) &&
     identical(scalar_text(record$collector_protocol_version, ""), COLLECTOR_PROTOCOL_VERSION)
 }
 
+# Valida a entrada, carrega o checkpoint e consulta somente os repositórios
+# pendentes, gravando cada linha ao terminar para permitir retomada segura.
 run_collection <- function(options) {
-  # Valida a entrada, carrega o checkpoint e consulta somente os repositórios
-  # pendentes. Cada linha é escrita ao terminar para permitir retomada segura.
   input_path <- resolve_project_path(options$input %||% sample_path())
   output_dir <- resolve_project_path(options$output %||% dirname(raw_checkpoint_path()))
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
