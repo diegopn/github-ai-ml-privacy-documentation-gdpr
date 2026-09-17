@@ -18,7 +18,7 @@ evidence <- read.csv("outputs/evidencias_positivas.csv", stringsAsFactors = FALS
 
 ## Presença documental (D1)
 
-```{r, echo=false, fig.width=7, fig.height=4}
+```{r, echo=FALSE, fig.width=7, fig.height=4}
 # Compara as contagens D1 nos dois snapshots históricos.
 barplot(
   c(as.numeric(r1$pre_ones), as.numeric(r1$post_ones)),
@@ -40,7 +40,7 @@ barplot(
 
 ## PDE Score
 
-```{r, echo=false, fig.width=7, fig.height=4}
+```{r, echo=FALSE, fig.width=7, fig.height=4}
 # Mostra a frequência de cada critério no período pós-GDPR.
 barplot(
   post_frequency,
