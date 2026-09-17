@@ -17,6 +17,7 @@ evidências e calcula os testes pareados.
 
 - R 4.5 ou superior;
 - pacote `jsonlite`.
+- programa `curl` disponível no sistema para as requisições da API.
 
 Instalação:
 
