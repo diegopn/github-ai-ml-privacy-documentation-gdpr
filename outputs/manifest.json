@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-09-17T00:58:52Z",
+  "input_csv": "/home/diegopn/IdeaProjects/GitHubPrivacyExperiment_R/data/repositorios_selecionados.csv",
+  "input_sha256": "0247427ae2850acc5302f94b585e765434b3f339db54f9e51baa00012583b25b",
+  "input_rows": 328,
+  "dataset_rows": 328,
+  "complete_pairs": 328,
+  "incomplete_pairs": 0,
+  "classification_rule_version": "semantic-conservative-2026-09-c1-c4",
+  "collector_protocol_version": "open-source-no-size-limit-2026-09",
+  "wilcoxon_method": "exact-two-sided-average-ranks-zero-differences-excluded",
+  "sample_requires_osi_approved_license": true,
+  "files": ["amostra_utilizada.csv", "amostra_utilizada.sha256.txt", "dataset_final_privacidade_gdpr.csv", "evidencias_positivas.csv", "estatisticas.json", "resultados_estatisticos.md", "experimento_privacidade_gdpr.md", "../data/raw/repository_results.jsonl"]
+}

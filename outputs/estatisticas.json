@@ -1,0 +1,73 @@
+{
+  "analysis_population": "pares com as duas versões históricas e árvores Git recuperadas",
+  "total_input_rows": 328,
+  "complete_pairs": 328,
+  "incomplete_pairs": 0,
+  "incomplete_repositories": [],
+  "rq1_mcnemar": {
+    "n_complete_pairs": 328,
+    "pre_ones": 1,
+    "post_ones": 16,
+    "pre_proportion": 0.0030487804878048782,
+    "post_proportion": 0.04878048780487805,
+    "pre1_post0_b": 1,
+    "pre0_post1_c": 16,
+    "exact_mcnemar_p_two_sided": 0.000274658203125,
+    "paired_proportion_difference_post_minus_pre": 0.04573170731707317,
+    "matched_odds_ratio_c_over_b_haldane": 11
+  },
+  "rq2_wilcoxon": {
+    "n_complete_pairs": 328,
+    "pre_mean": 0,
+    "post_mean": 0.082317073170731711,
+    "pre_median": 0,
+    "post_median": 0,
+    "pre_iqr": [0, 0],
+    "post_iqr": [0, 0],
+    "difference_mean": 0.082317073170731711,
+    "difference_median": 0,
+    "difference_iqr": [0, 0],
+    "difference_ci95_bootstrap_median": [0, 0],
+    "increased": 13,
+    "decreased": 0,
+    "unchanged": 315,
+    "wilcoxon_signed_rank_exact": {
+      "n_nonzero": 13,
+      "w_plus": 91,
+      "w_minus": 0,
+      "p_two_sided_exact": 0.000244140625,
+      "rank_biserial": 1,
+      "zero_differences_excluded": 315,
+      "ties_use_average_ranks": true
+    }
+  },
+  "criterion_frequencies": {
+    "pre": {
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0,
+      "C6": 0,
+      "C7": 0
+    },
+    "post": {
+      "C1": 5,
+      "C2": 5,
+      "C3": 1,
+      "C4": 1,
+      "C5": 2,
+      "C6": 4,
+      "C7": 9
+    }
+  },
+  "generated_at": "2026-09-17T00:58:52Z",
+  "source_csv": "/home/diegopn/IdeaProjects/GitHubPrivacyExperiment_R/data/repositorios_selecionados.csv",
+  "source_sha256": "0247427ae2850acc5302f94b585e765434b3f339db54f9e51baa00012583b25b",
+  "pre_until": "2018-05-24T23:59:59Z",
+  "post_until": "2026-06-30T23:59:59Z",
+  "classification_rule_version": "semantic-conservative-2026-09-c1-c4",
+  "collector_protocol_version": "open-source-no-size-limit-2026-09",
+  "sample_requires_osi_approved_license": true,
+  "open_source_repositories": 328
+}
