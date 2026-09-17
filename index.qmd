@@ -144,12 +144,17 @@ knitr::kable(as.data.frame.matrix(transition), format = "html", caption = "Matri
 
 ### Evidências positivas
 
+<details class="data-details">
+<summary>Mostrar evidências positivas</summary>
+
 ```{r}
 # Evita que delimitadores Markdown coletados sejam interpretados pelo Quarto.
 evidence_display <- evidence
 evidence_display$evidence <- gsub(":::", ": : :", evidence_display$evidence, fixed = TRUE)
 knitr::kable(evidence_display, format = "html", caption = "Trechos que sustentaram classificações positivas")
 ```
+
+</details>
 
 ## Dados coletados {#dados}
 
@@ -166,9 +171,14 @@ período e os caminhos dos documentos recuperados. O dataset completo inclui
 também os SHAs dos commits, trechos de evidência, observações e metadados de
 acessibilidade.
 
+<details class="data-details">
+<summary>Mostrar os repositórios e documentos analisados</summary>
+
 ```{r}
 knitr::kable(view, format = "html", caption = "Registros do dataset final")
 ```
+
+</details>
 
 ### Arquivos para inspeção
 
@@ -235,6 +245,20 @@ Score, calcula o teste exato de Wilcoxon pareado, excluindo diferenças zero e
 usando postos médios em empates. O nível de significância adotado é
 $\alpha=0{,}05$.
 
+::: {.pvalue-note}
+O *p-value* é a probabilidade de observar um resultado tão extremo quanto o
+obtido, ou mais extremo, supondo que a hipótese nula (H0) seja verdadeira. Com
+$\alpha=0{,}05$, um *p-value* menor que α leva à rejeição de H0; um valor maior
+ou igual a α não permite rejeitá-la. Essa decisão não prova H1 nem transforma
+H0 em uma verdade automática.
+
+Neste estudo, o *p-value* exato de McNemar foi `r fmt_p(r1$exact_mcnemar_p_two_sided)`
+e o de Wilcoxon foi `r fmt_p(w$p_two_sided_exact)`. Como ambos são menores que
+0,05, rejeitamos H0 nos dois testes ao nível de significância adotado. A
+interpretação deve considerar também as contagens, o tamanho das diferenças e
+as limitações do desenho observacional.
+:::
+
 Os resultados medem evidência documental versionada. Eles não constituem
 auditoria jurídica nem permitem atribuir causalidade exclusiva à GDPR.
 
@@ -281,30 +305,8 @@ O seletor também pode ser executado isoladamente:
 Rscript scripts/select_sample.R --output inputs/final/selected_repositories.csv
 ```
 
-### Site
-
-Com o Quarto instalado, visualize localmente:
-
-```bash
-quarto preview
-```
-
-Para gerar os arquivos estáticos:
-
-```bash
-quarto render
-```
-
-O workflow em `.github/workflows/quarto-publish.yml` publica esta página no
-GitHub Pages após cada atualização da branch principal.
-
 ### Artefatos
 
 O repositório mantém a amostra, o checkpoint bruto, o dataset final, as
 evidências positivas, as estatísticas, os gráficos e os relatórios. O arquivo
 `outputs/metadata/manifest.json` registra os hashes e versões usados na execução.
-
-## Código e licença {#licenca}
-
-O código-fonte e os dados derivados estão disponíveis no repositório sob a
-[Licença MIT](LICENSE).

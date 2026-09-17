@@ -10,6 +10,7 @@ IA/ML observado em dois snapshots:
 
 A página pública é gerada a partir dos arquivos versionados e pode ser
 publicada no GitHub Pages pelo workflow incluído no repositório.
+A [visualização pública do experimento](https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/) está disponível no GitHub Pages.
 
 ## Estrutura
 
