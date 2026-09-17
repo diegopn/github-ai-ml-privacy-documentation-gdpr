@@ -1,9 +1,13 @@
 ## Coleta histórica de documentação versionada no GitHub.
+## O script consulta cada repositório nos dois limites temporais e guarda as
+## respostas em JSONL, para que a análise posterior possa ser reproduzida offline.
 
 script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
 script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("R", "collect.R")
 source(file.path(dirname(script_path_for_source), "common.R"))
 
+# Lê argumentos de linha de comando; os valores padrão apontam para a amostra
+# fechada e para o diretório de checkpoint do projeto.
 parse_options <- function(args) {
   values <- list(
     input = file.path("data", "repositorios_selecionados.csv"),
@@ -26,6 +30,8 @@ parse_options <- function(args) {
 }
 
 compact_metadata <- function(body) {
+  # Mantém apenas metadados necessários para auditoria, evitando copiar toda a
+  # resposta da API para cada registro.
   if (!is.list(body)) return(list())
   metadata <- list()
   for (field in c("full_name", "visibility", "created_at", "updated_at")) metadata[[field]] <- scalar_text(body[[field]], "")
@@ -38,6 +44,7 @@ compact_metadata <- function(body) {
 }
 
 commit_info <- function(payload) {
+  # Achata a resposta aninhada de commits em campos estáveis do checkpoint.
   commit <- payload$commit %||% list()
   author <- commit$author %||% list()
   committer <- commit$committer %||% list()
@@ -56,6 +63,8 @@ commit_info <- function(payload) {
 }
 
 collect_version <- function(repository, until, accessible, token) {
+  # Recupera o último commit no limite, sua árvore e os documentos candidatos;
+  # a classificação preliminar também fica registrada para inspeção do coletor.
   version <- list(until = until)
   if (!accessible) {
     version$error <- "versão não consultada porque a validação do repositório falhou"
@@ -96,6 +105,8 @@ collect_version <- function(repository, until, accessible, token) {
 }
 
 collect_one <- function(row, source_hash, token) {
+  # Um registro contém metadados atuais e os dois snapshots históricos do mesmo
+  # repositório, preservando a natureza pareada do experimento.
   repository <- scalar_text(row$repository, "")
   result <- list(
     repository = repository,
@@ -117,11 +128,14 @@ collect_one <- function(row, source_hash, token) {
 }
 
 is_reusable <- function(record, source_hash) {
+  # Um checkpoint só é reutilizado se veio da mesma amostra e deste protocolo.
   !is.null(record) && identical(scalar_text(record$source_sha256, ""), source_hash) &&
     identical(scalar_text(record$collector_protocol_version, ""), COLLECTOR_PROTOCOL_VERSION)
 }
 
 run_collection <- function(options) {
+  # Valida a entrada, carrega o checkpoint e consulta somente os repositórios
+  # pendentes. Cada linha é escrita ao terminar para permitir retomada segura.
   dir.create(options$output, recursive = TRUE, showWarnings = FALSE)
   checkpoint <- file.path(options$output, "repository_results.jsonl")
   sample <- read_sample(options$input)
@@ -132,9 +146,13 @@ run_collection <- function(options) {
   pending <- repositories[!vapply(repositories, function(repository) is_reusable(cached[[repository]], source_hash), logical(1L))]
   cat(sprintf("Amostra open source=%d; checkpoint=%d; pendentes=%d; pré=%s; pós=%s; trabalhadores=%d\n", nrow(sample), length(cached), length(pending), PRE_UNTIL, POST_UNTIL, options$workers))
   if (length(pending)) {
+    # O token só é exigido quando há chamadas novas; a análise de um checkpoint
+    # completo pode ser executada sem credenciais ou acesso à API.
     token <- Sys.getenv("GITHUB_TOKEN", unset = "")
     if (!nzchar(token)) token <- read_dotenv_token()
     if (!nzchar(token)) stop("GITHUB_TOKEN não encontrado no ambiente ou em .env.")
+    # A escrita sequencial torna a ordem do checkpoint determinística e simples
+    # de retomar, mesmo quando a opção de trabalhadores foi informada.
     for (index in seq_along(pending)) {
       repository <- pending[[index]]
       row <- sample[match(repository, sample$repository), , drop = FALSE]
@@ -150,6 +168,8 @@ run_collection <- function(options) {
   invisible(checkpoint)
 }
 
+# Só executa a interface de linha de comando quando o arquivo é chamado como
+# script; source() pode carregá-lo sem iniciar uma nova coleta.
 if (sys.nframe() == 0L) {
   script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   project_dir <- if (length(script_arg)) normalizePath(file.path(dirname(sub("^--file=", "", script_arg[[1L]])), ".."), mustWork = TRUE) else getwd()

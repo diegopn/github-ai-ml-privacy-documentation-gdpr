@@ -1,9 +1,13 @@
 ## Achatamento, classificação final e análise estatística.
+## Esta etapa não consulta a API: lê o CSV e o checkpoint JSONL, recalcula as
+## regras sobre os documentos recuperados e produz os artefatos analisáveis.
 
 script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
 script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("R", "analyze.R")
 source(file.path(dirname(script_path_for_source), "common.R"))
 
+# Define os arquivos de entrada e saída usados quando o analisador é executado
+# diretamente pelo Rscript.
 parse_options <- function(args) {
   values <- list(
     input = file.path("data", "repositorios_selecionados.csv"),
@@ -24,6 +28,8 @@ parse_options <- function(args) {
 }
 
 missing_record <- function(row) {
+  # Mantém a linha da amostra mesmo quando não existe registro no checkpoint;
+  # assim a ausência fica explícita no dataset final.
   list(
     repository = scalar_text(row$repository, ""), input_row = as.list(row),
     accessibility = list(http_status = 0L, accessible = FALSE, metadata = list(), error = "registro não processado"),
@@ -32,6 +38,8 @@ missing_record <- function(row) {
 }
 
 records_to_dataset <- function(sample, records, source_hash) {
+  # Indexa o JSONL e restaura a ordem original da amostra antes de achatar os
+  # objetos aninhados em uma linha por repositório.
   by_repository <- index_records(records)
   rows <- lapply(seq_len(nrow(sample)), function(index) {
     row <- sample[index, , drop = FALSE]
@@ -50,16 +58,21 @@ records_to_dataset <- function(sample, records, source_hash) {
 }
 
 calculate_statistics <- function(records, dataset, sample) {
+  # Os testes usam somente pares completos; contagens e repositórios incompletos
+  # continuam no relatório para não desaparecerem silenciosamente.
   complete <- vapply(records, is_complete_record, logical(1L))
   indices <- which(complete)
+  # Converte as colunas gravadas como texto no CSV para os vetores numéricos dos testes.
   numeric_column <- function(name) suppressWarnings(as.numeric(dataset[[name]][indices]))
   pre_d1 <- numeric_column("pre_D1")
   post_d1 <- numeric_column("post_D1")
   pre_score <- numeric_column("pre_score")
   post_score <- numeric_column("post_score")
   differences <- post_score - pre_score
+  # b e c são as duas transições discordantes exigidas pelo McNemar pareado.
   b <- sum(pre_d1 == 1 & post_d1 == 0, na.rm = TRUE)
   c_value <- sum(pre_d1 == 0 & post_d1 == 1, na.rm = TRUE)
+  # O Wilcoxon usa a diferença de score pós menos pré para cada par.
   wilcoxon <- wilcoxon_exact(differences)
   generated_at <- format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
   pre_frequency <- setNames(integer(length(RULES)), names(RULES))
@@ -108,6 +121,8 @@ calculate_statistics <- function(records, dataset, sample) {
   )
 }
 
+# Formatação centralizada para que tabelas, relatório e console usem os mesmos
+# separadores e casas decimais.
 fmt_num <- function(value, digits = 3L) {
   if (is.null(value) || length(value) == 0L || is.na(value)) return("NA")
   formatC(as.numeric(value), format = "f", digits = digits, decimal.mark = ".")
@@ -116,6 +131,7 @@ fmt_num <- function(value, digits = 3L) {
 fmt_pct <- function(value) paste0(fmt_num(as.numeric(value) * 100, 1L), "%")
 
 write_stats_markdown <- function(path, stats) {
+  # Relatório legível dos testes, das contagens e das regras de interpretação.
   r1 <- stats$rq1_mcnemar
   r2 <- stats$rq2_wilcoxon
   w <- r2$wilcoxon_signed_rank_exact
@@ -153,6 +169,7 @@ write_stats_markdown <- function(path, stats) {
 }
 
 write_report <- function(path, stats, sample, source_hash, dataset) {
+  # Descreve desenho, população, limitações e resultados em linguagem de artigo.
   r1 <- stats$rq1_mcnemar
   r2 <- stats$rq2_wilcoxon
   lines <- c(
@@ -183,6 +200,7 @@ write_report <- function(path, stats, sample, source_hash, dataset) {
 }
 
 write_manifest <- function(path, stats) {
+  # Registra hashes, versões e nomes dos artefatos para reconstruir a execução.
   manifest <- list(
     generated_at = stats$generated_at,
     input_csv = stats$source_csv,
@@ -201,6 +219,7 @@ write_manifest <- function(path, stats) {
 }
 
 write_positive_evidence <- function(path, dataset) {
+  # Exporta cada evidência positiva em formato tabular para revisão manual.
   values <- list()
   for (index in seq_len(nrow(dataset))) {
     for (period in c("pre", "post")) {
@@ -221,6 +240,7 @@ write_positive_evidence <- function(path, dataset) {
 }
 
 write_derived_outputs <- function(output_dir, stats, dataset) {
+  # Gera tabelas, RDS e gráficos derivados sem novas chamadas à API.
   complete <- dataset$pre_D1 != "" & dataset$post_D1 != ""
   transition <- table(
     factor(suppressWarnings(as.numeric(dataset$pre_D1[complete])), levels = c(0, 1)),
@@ -258,6 +278,8 @@ write_derived_outputs <- function(output_dir, stats, dataset) {
 }
 
 run_analysis <- function(options) {
+  # Pipeline offline: valida entradas, achata o checkpoint, calcula estatísticas
+  # e grava todos os arquivos de reprodução no diretório de saída.
   dir.create(options$output, recursive = TRUE, showWarnings = FALSE)
   sample <- read_sample(options$input)
   validate_open_source_sample(sample)
@@ -269,6 +291,8 @@ run_analysis <- function(options) {
   writeLines(c(paste0("sha256  ", source_hash), paste0("source  ", normalizePath(options$input, mustWork = FALSE)), paste0("rows  ", nrow(sample))), file.path(options$output, "amostra_utilizada.sha256.txt"), useBytes = TRUE)
   write.csv(dataset, file.path(options$output, "dataset_final_privacidade_gdpr.csv"), row.names = FALSE, fileEncoding = "UTF-8", na = "")
   write_positive_evidence(file.path(options$output, "evidencias_positivas.csv"), dataset)
+  # O dataset é salvo antes das estatísticas para que mesmo uma falha posterior
+  # deixe disponível a tabela principal da execução.
   stats <- calculate_statistics(records, dataset, sample)
   write_derived_outputs(options$output, stats, dataset)
   jsonlite::write_json(stats, file.path(options$output, "estatisticas.json"), auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
@@ -280,6 +304,7 @@ run_analysis <- function(options) {
   invisible(stats)
 }
 
+# Evita executar a análise quando este arquivo é apenas carregado por um wrapper.
 if (sys.nframe() == 0L) {
   script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   project_dir <- if (length(script_arg)) normalizePath(file.path(dirname(sub("^--file=", "", script_arg[[1L]])), ".."), mustWork = TRUE) else getwd()

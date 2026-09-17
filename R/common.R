@@ -1,9 +1,14 @@
 ## Funções compartilhadas da coleta, classificação e análise.
+##
+## Este arquivo concentra as regras que precisam ser iguais em todas as etapas.
+## Assim, a coleta pode guardar dados brutos e a análise pode recalcular a
+## classificação sem duplicar critérios em vários scripts.
 
 if (!requireNamespace("jsonlite", quietly = TRUE)) {
   stop("O pacote 'jsonlite' é necessário. Instale-o com install.packages('jsonlite').")
 }
 
+# Os dois limites definem os snapshots históricos comparados pelo experimento.
 PRE_UNTIL <- "2018-05-24T23:59:59Z"
 POST_UNTIL <- "2026-06-30T23:59:59Z"
 COLLECTOR_PROTOCOL_VERSION <- "open-source-no-size-limit-2026-09"
@@ -20,6 +25,8 @@ PRIVACY_MARKERS <- c(
   "consent", "retention", "subprocessor", "compliance"
 )
 
+# Cada regra tem termos primários, contexto próximo e grupos obrigatórios.
+# Uma ocorrência só vale como evidência quando satisfaz todos esses níveis.
 RULES <- list(
   C1 = list(
     label = "dados pessoais",
@@ -137,8 +144,11 @@ RULES <- list(
   )
 )
 
+## Valor padrão para listas JSON em que um campo pode estar ausente ou vazio.
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0L) y else x
 
+## JSON pode representar o mesmo campo como lista, vetor ou valor escalar.
+## Estas funções normalizam esses casos antes de qualquer comparação.
 scalar <- function(x, default = "") {
   if (is.null(x) || length(x) == 0L) return(default)
   if (is.list(x)) x <- x[[1L]]
@@ -167,6 +177,8 @@ scalar_bool <- function(x, default = FALSE) {
   else default
 }
 
+# Executa uma expressão regular sem interromper a análise por uma expressão
+# inválida ou por um campo textual ausente.
 safe_grepl <- function(pattern, text) {
   if (is.null(text) || !length(text) || is.na(text)) return(FALSE)
   tryCatch(grepl(pattern, text, ignore.case = TRUE, perl = TRUE), error = function(...) FALSE)
@@ -176,12 +188,14 @@ matches_any <- function(patterns, text) {
   length(patterns) > 0L && any(vapply(patterns, safe_grepl, logical(1L), text = text))
 }
 
+# O hash identifica exatamente a amostra usada para gerar cada checkpoint.
 sha256_file <- function(path) {
   result <- system2("sha256sum", c(path), stdout = TRUE, stderr = TRUE)
   if (!length(result)) stop(sprintf("Não foi possível calcular SHA-256 de %s.", path))
   sub("[[:space:]].*$", "", result[[1L]])
 }
 
+# O conteúdo de cada documento também recebe hash para auditoria posterior.
 sha256_text <- function(text) {
   temporary <- tempfile(fileext = ".txt")
   on.exit(unlink(temporary), add = TRUE)
@@ -189,6 +203,7 @@ sha256_text <- function(text) {
   sha256_file(temporary)
 }
 
+# Lê a amostra fechada, preservando os nomes das colunas e os textos UTF-8.
 read_sample <- function(path) {
   if (!file.exists(path)) stop(sprintf("Arquivo de entrada não encontrado: %s", path))
   result <- read.csv(
@@ -200,6 +215,7 @@ read_sample <- function(path) {
   result
 }
 
+# Impede que uma amostra diferente dos critérios de seleção seja processada.
 validate_open_source_sample <- function(sample) {
   required <- c("repository", "license_spdx_id", "license_osi_approved")
   missing <- setdiff(required, names(sample))
@@ -214,6 +230,8 @@ validate_open_source_sample <- function(sample) {
   invisible(TRUE)
 }
 
+# O formato JSONL permite gravar cada repositório assim que ele termina.
+# Se a execução for interrompida, os registros já escritos continuam válidos.
 write_jsonl <- function(records, path, append = TRUE) {
   con <- file(path, open = if (append) "a" else "w", encoding = "UTF-8")
   on.exit(close(con), add = TRUE)
@@ -223,6 +241,7 @@ write_jsonl <- function(records, path, append = TRUE) {
   }
 }
 
+# Reabre o checkpoint linha a linha para permitir retomada e análise offline.
 read_jsonl <- function(path) {
   if (!file.exists(path)) return(list())
   lines <- readLines(path, encoding = "UTF-8", warn = FALSE)
@@ -236,6 +255,7 @@ read_jsonl <- function(path) {
   })
 }
 
+# Indexa o checkpoint por repositório e restaura a ordem da amostra depois.
 index_records <- function(records) {
   result <- list()
   for (record in records) {
@@ -245,6 +265,7 @@ index_records <- function(records) {
   result
 }
 
+# Permite usar um token local sem colocá-lo no código-fonte.
 read_dotenv_token <- function(path = ".env") {
   if (!file.exists(path)) return("")
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
@@ -254,6 +275,8 @@ read_dotenv_token <- function(path = ".env") {
   sub("^[\"']|[\"']$", "", trimws(token))
 }
 
+# Cliente HTTP mínimo. A API pode responder com limites temporários ou erros
+# transitórios; por isso a função repete a chamada com espera crescente.
 http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L) {
   body_path <- tempfile(fileext = ".body")
   status_path <- tempfile(fileext = ".status")
@@ -307,11 +330,13 @@ http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L) 
   list(status = 0L, body = if (parse_json) list() else "", error = "requisição sem resposta")
 }
 
+# Codifica cada componente do caminho sem transformar as barras em texto.
 encode_path <- function(path) {
   parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
   paste(vapply(parts, utils::URLencode, character(1L), reserved = TRUE), collapse = "/")
 }
 
+# Monta chamadas JSON autenticadas para a API do GitHub.
 github_api <- function(path, params = list(), token = "") {
   query <- if (length(params)) {
     paste(
@@ -323,6 +348,7 @@ github_api <- function(path, params = list(), token = "") {
   http_request(url, token = token, parse_json = TRUE)
 }
 
+# Baixa o arquivo fixado por commit, evitando usar o estado atual do branch.
 github_raw <- function(repository, sha, path, token = "") {
   url <- paste0("https://raw.githubusercontent.com/", repository, "/", sha, "/", encode_path(path))
   response <- http_request(url, token = token, parse_json = FALSE)
@@ -333,17 +359,21 @@ github_raw <- function(repository, sha, path, token = "") {
   )
 }
 
+## Retorna somente o nome final de um caminho Git.
 file_name <- function(path) {
   parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
   parts[[length(parts)]]
 }
 
+# Apenas documentos textuais podem ser analisados; código binário é ignorado.
 is_text_document <- function(path) {
   lower <- tolower(path)
   name <- file_name(lower)
   name %in% c("readme", "license", "copying") || any(vapply(TEXT_EXTENSIONS, function(extension) endsWith(lower, extension), logical(1L)))
 }
 
+# Seleciona README e arquivos cujo nome indica privacidade, segurança ou
+# conformidade. A ordenação torna a coleta determinística.
 document_candidates <- function(tree) {
   entries <- tree$tree %||% list()
   if (!is.list(entries) || !length(entries)) return(list())
@@ -374,6 +404,7 @@ document_candidates <- function(tree) {
   values[order_index]
 }
 
+# Divide o documento em unidades curtas para que o contexto seja local.
 text_units <- function(text) {
   if (is.null(text) || !nzchar(text)) return(character())
   value <- gsub("\\r", " ", text, fixed = TRUE)
@@ -382,6 +413,7 @@ text_units <- function(text) {
   units[nzchar(units)]
 }
 
+# Remove URLs, imagens e marcação antes de procurar termos semânticos.
 clean_for_matching <- function(text) {
   value <- gsub("https?://[^\\s\"')>]+", " ", text, perl = TRUE)
   value <- gsub("!\\[[^]]*\\]\\([^)]*\\)", " ", value, perl = TRUE)
@@ -390,6 +422,7 @@ clean_for_matching <- function(text) {
   trimws(gsub("\\s+", " ", value, perl = TRUE))
 }
 
+# Guarda um trecho centrado no termo encontrado, útil para revisão humana.
 centered_snippet <- function(value, primary) {
   starts <- integer()
   ends <- integer()
@@ -407,6 +440,8 @@ centered_snippet <- function(value, primary) {
   trimws(substr(value, start, end))
 }
 
+# Procura o primeiro bloco que contém o termo primário, o contexto e todos os
+# grupos obrigatórios. A janela inclui duas unidades antes e duas depois.
 find_evidence <- function(text_values, primary, context = character(), required_groups = list(), accepted = function(...) TRUE) {
   if (!length(text_values)) return("")
   for (index in seq_along(text_values)) {
@@ -423,6 +458,8 @@ find_evidence <- function(text_values, primary, context = character(), required_
   ""
 }
 
+# C1 aceita categorias concretas ou dados nomeados associados a uma operação
+# de tratamento, reduzindo falsos positivos causados por menções genéricas.
 is_c1_evidence <- function(snippet) {
   concrete <- safe_grepl("\\b(?:email|e-mail|ip address|mailing address|cookies?|authentication credentials|license plate(?: data)?|health data|location data)\\b", snippet)
   named <- safe_grepl("\\b(?:personal|user|customer|usage|account) data\\b|\\bpersonal information\\b|\\bPII\\b|data subject", snippet)
@@ -430,10 +467,12 @@ is_c1_evidence <- function(snippet) {
   concrete || (named && processing)
 }
 
+# C4 exige um direito ou procedimento explicitamente ligado ao titular.
 is_c4_evidence <- function(snippet) {
   safe_grepl("right[s]?\\s+(?:of|to)\\s+(?:data )?subjects?|right to (?:access|rectification|erasure|deletion|portability|object|withdraw)|data subject rights|your right|withdraw (?:your )?consent|(?:modify|access|retrieve|correct|delete)[^.;\\n]{0,100}personal data|users? can delete[^.;\\n]{0,100}(?:data|accounts?)|data deleted from", snippet)
 }
 
+# Fallback para padrões que não dependem da janela normal de unidades textuais.
 direct_snippet <- function(text, pattern) {
   match <- tryCatch(regexpr(pattern, text, ignore.case = TRUE, perl = TRUE), error = function(...) -1L)
   if (length(match) && match[[1L]] > 0L) {
@@ -444,36 +483,43 @@ direct_snippet <- function(text, pattern) {
   ""
 }
 
+# O nome do arquivo também pode identificar uma política dedicada.
 is_dedicated_privacy_document <- function(path) {
   safe_grepl("privacy|gdpr|data[-_ ]?protection|personal[-_ ]?data|cookie[-_ ]?policy", file_name(tolower(path)))
 }
 
+# C2-C6 exigem vínculo explícito com privacidade, dados pessoais ou titulares.
 has_privacy_criterion_context <- function(snippet, path) {
   is_dedicated_privacy_document(path) ||
     safe_grepl("privacy|gdpr|personal data|personal information|personally identifiable|\\bPII\\b|data subject|user data|customer data|private data|anonymous user data|license plate data", snippet) ||
     safe_grepl("security[-_ ]and[-_ ]privacy|privacy[-_ ]and[-_ ]security|(?:^|/)privacy(?:[-_/]|$)", path)
 }
 
+# Dados declarados apenas como anônimos não são contados como dados pessoais.
 is_anonymous_only <- function(snippet) {
   if (!safe_grepl("\\b(?:anonymous|anonymized|anonymised) (?:user |usage )?data\\b", snippet)) return(FALSE)
   !safe_grepl("personal|personally identifiable|\\bPII\\b|data subject|email address|ip address|cookies?|license plate|authentication credentials", snippet)
 }
 
+# Expiração de token ou cookie não é tratada como exclusão de dados pessoais.
 is_false_deletion_context <- function(snippet) {
   (safe_grepl("jwt|auth[_ ]manager|revoke[_ ]token|token expiration|cookie deletion", snippet) &&
      !safe_grepl("(?:personal|user|customer|account) data|data deleted|delete accounts?|retention", snippet))
 }
 
+# Compartilhar bibliotecas ou dependências não é compartilhamento de dados.
 is_false_sharing_context <- function(snippet) {
   software_only <- safe_grepl("shared librar|third[- ]party dependenc|share\\.sh|build_release.*share", snippet)
   data_disclosure <- safe_grepl("(?:share|transfer|disclos)[^.]{0,50}(?:personal|user|customer|usage|training|private)? ?data|(?:personal|user|customer|usage|training|private) data[^.]{0,50}(?:share|transfer|disclos)", snippet)
   software_only && !data_disclosure
 }
 
+# Citações acadêmicas não constituem evidência sobre o próprio projeto.
 is_bibliographic_context <- function(snippet) {
   safe_grepl("proceedings|conference|journal|association for computing machinery|\\bdoi\\b|\\bet al\\.|\\bvolume\\s+\\d|\\bpages?\\s+\\d", snippet)
 }
 
+# Exclui listas de links e bibliografias sem contexto operacional do projeto.
 is_external_resource_unit <- function(text) {
   has_link <- safe_grepl("https?://|!\\[|\\]\\(", text)
   if (!has_link) return(FALSE)
@@ -482,6 +528,7 @@ is_external_resource_unit <- function(text) {
   !safe_grepl(project_language, text)
 }
 
+# Exige linguagem do próprio projeto, uma política dedicada ou um mecanismo técnico.
 is_project_contextual <- function(snippet, path, repository) {
   if (is_dedicated_privacy_document(path)) return(TRUE)
   if (safe_grepl("(?:^|/)privacy(?:[-_/]|$)|security[-_ ]and[-_ ]privacy|privacy[-_ ]and[-_ ]security", path)) return(TRUE)
@@ -496,6 +543,8 @@ is_project_contextual <- function(snippet, path, repository) {
   safe_grepl("privacy[- ]preserv|homomorphic encrypt|secure multi[- ]party|encrypted data|data never leaves|on[- ]device|training data[^.]{0,120}this project|redact[^.]{0,100}(?:private|personal) data|(?:protect|secure|sandbox)[^.]{0,100}(?:model|framework|application)|(?:model|framework|application)[^.]{0,100}(?:protect|secure|sandbox)", snippet)
 }
 
+# Mantém README de raiz e políticas relevantes; exclui testes, datasets, exemplos
+# e dependências, que podem conter texto sem relação com a documentação do projeto.
 relevant_documents <- function(documents) {
   markers <- c("privacy", "security", "gdpr", "data-protection", "personal-data", "privacy-policy", "terms", "legal", "compliance", "retention", "consent", "subprocessor")
   excluded <- c("dataset", "datasets", "test", "tests", "fixture", "fixtures", "sample", "samples", "output", "outputs", "example", "examples", "node_modules", "vendor", "dist", "build")
@@ -515,6 +564,8 @@ relevant_documents <- function(documents) {
   values
 }
 
+# Recalcula C1-C7 e D1 somente sobre os documentos relevantes. Para cada critério,
+# a primeira evidência válida é preservada junto do SHA, arquivo e trecho textual.
 classify_documents <- function(documents, sha = "", repository = "") {
   evidence <- list()
   weak <- FALSE
@@ -530,6 +581,8 @@ classify_documents <- function(documents, sha = "", repository = "") {
     if (!dedicated) values <- values[!vapply(values, is_external_resource_unit, logical(1L))]
     values <- vapply(values, clean_for_matching, character(1L))
     values <- values[nzchar(values)]
+    # Uma evidência por critério basta para a classificação, mas o trecho fica
+    # armazenado para auditoria e revisão manual.
     for (code in names(RULES)) {
       if (!is.null(evidence[[code]])) next
       rule <- RULES[[code]]
@@ -547,8 +600,11 @@ classify_documents <- function(documents, sha = "", repository = "") {
     }
   }
 
+  # D1 pode ser sustentado por qualquer critério positivo; os blocos seguintes
+  # também reconhecem uma política explícita ou mecanismos documentados de privacidade.
   d1_evidence <- if (length(evidence)) evidence[[1L]] else ""
   if (!nzchar(d1_evidence)) {
+    # Primeiro procura uma política ou aviso de privacidade claramente identificado.
     policy_phrase <- "privacy\\s+(?:policy|notice)|data\\s+protection\\s+(?:policy|notice)"
     for (document in documents) {
       if (scalar_int(document$status, 0L) != 200L) next
@@ -570,6 +626,7 @@ classify_documents <- function(documents, sha = "", repository = "") {
     }
   }
   if (!nzchar(d1_evidence)) {
+    # Depois considera telemetria/analytics quando o texto a associa ao projeto.
     for (document in documents) {
       if (scalar_int(document$status, 0L) != 200L) next
       content <- clean_for_matching(scalar_text(document$text, ""))
@@ -582,6 +639,7 @@ classify_documents <- function(documents, sha = "", repository = "") {
     }
   }
   if (!nzchar(d1_evidence)) {
+    # Por fim, procura mecanismos técnicos que expressem uma propriedade de privacidade.
     pattern <- "privacy[- ]preserv|privacy of synthetic data|measur(?:e|es|ed|ing)[^.]{0,100}privacy|redact[^.]{0,100}(?:private|personal) data|(?:personal data|PII|privacy information)[^.]{0,100}leak|leak(?:ing|age)?[^.]{0,100}(?:personal data|PII|privacy information)"
     for (document in documents) {
       if (scalar_int(document$status, 0L) != 200L) next
@@ -610,6 +668,7 @@ classify_documents <- function(documents, sha = "", repository = "") {
   )
 }
 
+# Schema estável do CSV final, usado para manter as colunas na mesma ordem.
 dataset_columns <- function() {
   c(
     "repository", "url", "name", "owner", "description", "language", "input_license_spdx_id", "input_license_name", "input_license_osi_approved", "stars", "issues", "created_at",
@@ -620,6 +679,8 @@ dataset_columns <- function() {
   )
 }
 
+# Combina os metadados da amostra com o checkpoint e recalcula a classificação
+# para as duas versões históricas, preservando observações e evidências.
 flatten_record <- function(row, record, row_number, source_hash) {
   output <- list()
   copy_field <- function(out, input) scalar_text(row[[input]], "")
@@ -660,6 +721,8 @@ flatten_record <- function(row, record, row_number, source_hash) {
 
   observations <- character()
   if (scalar_int(accessibility$http_status, 0L) != 200L) observations <- c(observations, "repositório não acessível na validação")
+  # O mesmo procedimento é aplicado aos snapshots pré e pós para produzir um
+  # dataset pareado e diretamente comparável.
   for (label in c("pre", "post")) {
     version <- record[[label]] %||% list()
     commit <- version$commit %||% list()
@@ -689,6 +752,8 @@ flatten_record <- function(row, record, row_number, source_hash) {
   output[dataset_columns()]
 }
 
+# Só entra nos testes pareados o registro com os dois SHAs e as duas árvores
+# Git recuperadas com HTTP 200; os demais permanecem identificados como incompletos.
 is_complete_record <- function(record) {
   pre <- record$pre %||% list()
   post <- record$post %||% list()
@@ -697,6 +762,7 @@ is_complete_record <- function(record) {
     scalar_int(pre$tree_request_status, 0L) == 200L && scalar_int(post$tree_request_status, 0L) == 200L
 }
 
+# Interpolação type=7, padrão de quantile() e comum em análises estatísticas.
 percentile_value <- function(values, probability) {
   values <- sort(as.numeric(values))
   values <- values[is.finite(values)]
@@ -704,6 +770,8 @@ percentile_value <- function(values, probability) {
   as.numeric(stats::quantile(values, probability, type = 7, names = FALSE))
 }
 
+# Calcula o p-valor bicaudal enumerando a distribuição binomial condicional
+# dos pares discordantes do teste de McNemar.
 exact_mcnemar <- function(b, c) {
   n <- b + c
   if (!n) return(1)
@@ -711,6 +779,8 @@ exact_mcnemar <- function(b, c) {
   min(1, 2 * sum(vapply(0:lower, function(k) choose(n, k), numeric(1L))) / 2^n)
 }
 
+# Calcula a versão exata bicaudal do Wilcoxon pareado, removendo diferenças zero,
+# usando postos médios e a distribuição de todas as combinações de sinais.
 wilcoxon_exact <- function(differences) {
   values <- differences[differences != 0]
   n <- length(values)
@@ -718,6 +788,7 @@ wilcoxon_exact <- function(differences) {
   ranks <- rank(abs(values), ties.method = "average")
   w_plus <- sum(ranks[values > 0])
   w_minus <- sum(ranks[values < 0])
+  # Multiplicar por 2 representa postos médios como inteiros no DP da distribuição.
   scaled <- as.integer(round(ranks * 2))
   probabilities <- 1
   for (rank_value in scaled) {
@@ -739,6 +810,8 @@ wilcoxon_exact <- function(differences) {
   )
 }
 
+# IC da mediana por bootstrap percentílico determinístico; a semente permite repetir
+# exatamente o mesmo resultado em outra execução.
 bootstrap_median_ci <- function(values, seed = 20260908L, repetitions = 10000L) {
   values <- as.numeric(values)
   if (!length(values)) return(c(NA_real_, NA_real_))

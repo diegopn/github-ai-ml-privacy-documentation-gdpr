@@ -1,4 +1,5 @@
-## Executa coleta e análise em sequência.
+## Orquestra coleta e análise em sequência.
+## A coleta cria ou reutiliza o checkpoint; a análise consome esse arquivo offline.
 
 source(file.path("R", "collect.R"))
 run_collection_function <- run_collection
@@ -25,6 +26,7 @@ if (sys.nframe() == 0L) {
   project_dir <- if (length(script_arg)) normalizePath(file.path(dirname(sub("^--file=", "", script_arg[[1L]])), ".."), mustWork = TRUE) else getwd()
   setwd(project_dir)
   options_pipeline <- parse_pipeline_options(commandArgs(trailingOnly = TRUE))
+  # Os dois estágios compartilham a mesma amostra e o diretório raw padrão.
   raw_directory <- file.path("data", "raw")
   run_collection_function(list(input = options_pipeline$input, output = raw_directory, workers = options_pipeline$workers))
   run_analysis_function(list(input = options_pipeline$input, raw = file.path(raw_directory, "repository_results.jsonl"), output = options_pipeline$output))
