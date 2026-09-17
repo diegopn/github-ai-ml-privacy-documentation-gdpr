@@ -393,10 +393,6 @@ pre code {
   padding-top: 72px;
 }
 
-#TOC {
-  border-left: 1px solid var(--line);
-}
-
 #TOC #toc-title {
   color: var(--rust);
   font-size: 0.67rem;
@@ -421,17 +417,24 @@ pre code {
 }
 
 .footer {
-  background: var(--navy);
-  color: var(--white);
+  background: var(--white);
+  color: var(--muted);
+  border-top: 1px solid var(--line);
 }
 
 .nav-footer {
   width: min(var(--max), calc(100% - 80px));
   margin: 0 auto;
   border-top: 0;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  padding: 18px 0 20px;
+}
+
+.nav-footer p {
+  margin: 0;
 }
 
 @media (max-width: 900px) {
