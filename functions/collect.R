@@ -3,15 +3,22 @@
 ## respostas em JSONL, para que a análise posterior possa ser reproduzida offline.
 
 script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("R", "collect.R")
-source(file.path(dirname(script_path_for_source), "common.R"))
+script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("functions", "collect.R")
+common_candidates <- unique(c(
+  file.path(dirname(script_path_for_source), "common.R"),
+  file.path(dirname(script_path_for_source), "..", "functions", "common.R"),
+  file.path("functions", "common.R")
+))
+common_path <- common_candidates[file.exists(common_candidates)][[1L]]
+if (is.na(common_path) || !nzchar(common_path)) stop("functions/common.R não encontrado.")
+source(common_path)
 
 # Lê argumentos de linha de comando; os valores padrão apontam para a amostra
 # fechada e para o diretório de checkpoint do projeto.
 parse_options <- function(args) {
   values <- list(
-    input = file.path("data", "repositorios_selecionados.csv"),
-    output = file.path("data", "raw"),
+    input = sample_path(),
+    output = dirname(raw_checkpoint_path()),
     workers = 1L
   )
   index <- 1L
@@ -23,7 +30,7 @@ parse_options <- function(args) {
       values[[name]] <- if (name == "workers") max(1L, as.integer(value)) else value
       index <- index + 2L
     } else {
-      stop("Uso: Rscript R/collect.R [--input arquivo.csv] [--output diretório] [--workers N]")
+      stop("Uso: Rscript scripts/collect.R [--input arquivo.csv] [--output diretório] [--workers N]")
     }
   }
   values
@@ -136,11 +143,13 @@ is_reusable <- function(record, source_hash) {
 run_collection <- function(options) {
   # Valida a entrada, carrega o checkpoint e consulta somente os repositórios
   # pendentes. Cada linha é escrita ao terminar para permitir retomada segura.
-  dir.create(options$output, recursive = TRUE, showWarnings = FALSE)
-  checkpoint <- file.path(options$output, "repository_results.jsonl")
-  sample <- read_sample(options$input)
+  input_path <- resolve_project_path(options$input %||% sample_path())
+  output_dir <- resolve_project_path(options$output %||% dirname(raw_checkpoint_path()))
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  checkpoint <- file.path(output_dir, "repository_results.jsonl")
+  sample <- read_sample(input_path)
   validate_open_source_sample(sample)
-  source_hash <- sha256_file(options$input)
+  source_hash <- sha256_file(input_path)
   cached <- index_records(read_jsonl(checkpoint))
   repositories <- as.character(sample$repository)
   pending <- repositories[!vapply(repositories, function(repository) is_reusable(cached[[repository]], source_hash), logical(1L))]
@@ -166,13 +175,4 @@ run_collection <- function(options) {
   }
   cat(sprintf("Checkpoint gravado em %s\n", normalizePath(checkpoint, mustWork = FALSE)))
   invisible(checkpoint)
-}
-
-# Só executa a interface de linha de comando quando o arquivo é chamado como
-# script; source() pode carregá-lo sem iniciar uma nova coleta.
-if (sys.nframe() == 0L) {
-  script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-  project_dir <- if (length(script_arg)) normalizePath(file.path(dirname(sub("^--file=", "", script_arg[[1L]])), ".."), mustWork = TRUE) else getwd()
-  setwd(project_dir)
-  run_collection(parse_options(commandArgs(trailingOnly = TRUE)))
 }

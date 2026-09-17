@@ -8,6 +8,7 @@
 - Pares incompletos preservados e excluídos dos testes: **0**.
 - Pré: último commit até `2018-05-24T23:59:59Z`.
 - Pós: último commit até `2026-06-30T23:59:59Z`.
+- Nível de significância: **α = 0.050**.
 
 ## RQ1: McNemar exato bicaudal para D1
 

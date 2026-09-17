@@ -3,13 +3,14 @@
 .Ruserdata
 .Rproj.user/
 .env
+.idea/
+*.iml
 *.tmp
 *.body
 *.status
 *.error
 _site/
 .quarto/
-_targets/
 renv/library/
 renv/staging/
 renv/local/

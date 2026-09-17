@@ -6,12 +6,13 @@ Este projeto executa a coleta, a classificação textual e a análise estatísti
 
 ## Entrada e desenho
 
-- CSV de entrada: `/home/diegopn/IdeaProjects/GitHubPrivacyExperiment_R/data/repositorios_selecionados.csv`.
+- CSV de entrada: `inputs/final/selected_repositories.csv`.
 - SHA-256 do CSV: `0247427ae2850acc5302f94b585e765434b3f339db54f9e51baa00012583b25b`.
 - Linhas da amostra: **328**.
 - Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.
 - Versão pré-GDPR: último commit até `2018-05-24T23:59:59Z`.
 - Versão pós-GDPR: último commit até `2026-06-30T23:59:59Z`.
+- Nível de significância: **α = 0.050**.
 
 A comparação é pareada e observacional. O resultado mede evidência documental versionada; não demonstra causalidade da GDPR nem conformidade jurídica.
 
@@ -36,7 +37,7 @@ Documentos externos ao repositório, práticas não versionadas e textos que nã
 
 ## Reprodução
 
-A coleta grava um checkpoint JSONL em `data/raw/repository_results.jsonl`. A análise pode ser repetida sem acesso à API usando o mesmo CSV e esse checkpoint. O dataset, as estatísticas e os relatórios são derivados desses arquivos.
+A coleta grava um checkpoint JSONL em `inputs/raw/repository_results.jsonl`. A análise pode ser repetida sem acesso à API usando o mesmo CSV e esse checkpoint. O dataset, as estatísticas e os relatórios são derivados desses arquivos.
 
 Versão das regras: `semantic-conservative-2026-09-c1-c4`.
 Linhas no dataset final: **328**.

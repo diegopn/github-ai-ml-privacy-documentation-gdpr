@@ -3,21 +3,28 @@
 ## no artigo estável mesmo quando os metadados do GitHub mudam.
 
 script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("R", "select_sample.R")
-source(file.path(dirname(script_path_for_source), "common.R"))
+script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("functions", "select_sample.R")
+common_candidates <- unique(c(
+  file.path(dirname(script_path_for_source), "common.R"),
+  file.path(dirname(script_path_for_source), "..", "functions", "common.R"),
+  file.path("functions", "common.R")
+))
+common_path <- common_candidates[file.exists(common_candidates)][[1L]]
+if (is.na(common_path) || !nzchar(common_path)) stop("functions/common.R não encontrado.")
+source(common_path)
 
-SELECTION_GDPR_DATE <- "2018-05-25T00:00:00Z"
-SELECTION_TOPICS <- c("artificial-intelligence", "deep-learning", "machine-learning")
-SELECTION_MIN_STARS <- 500L
-SELECTION_MIN_ISSUES <- 100L
-SELECTION_MIN_ACTIVITY_MONTHS <- 24
+SELECTION_GDPR_DATE <- as.character(setting("selection", "gdpr_date", "2018-05-25T00:00:00Z"))
+SELECTION_TOPICS <- unlist(setting("selection", "topics", c("artificial-intelligence", "deep-learning", "machine-learning")), use.names = FALSE)
+SELECTION_MIN_STARS <- as.integer(setting("selection", "min_stars", 500L))
+SELECTION_MIN_ISSUES <- as.integer(setting("selection", "min_issues", 100L))
+SELECTION_MIN_ACTIVITY_MONTHS <- as.numeric(setting("selection", "min_activity_months", 24))
 SELECTION_SEARCH_PAGE_SIZE <- 100L
 SELECTION_MAX_SEARCH_PAGES <- 10L
 SELECTION_SEARCH_INTERVAL <- 2.2
 
 # Os argumentos permitem gerar uma nova amostra ou revalidar um CSV existente.
 parse_selection_options <- function(args) {
-  values <- list(input = "", output = file.path("data", "repositorios_selecionados.csv"))
+  values <- list(input = "", output = sample_path())
   index <- 1L
   while (index <= length(args)) {
     option <- args[[index]]
@@ -25,13 +32,13 @@ parse_selection_options <- function(args) {
       values[[sub("^--", "", option)]] <- args[[index + 1L]]
       index <- index + 2L
     } else {
-      stop("Uso: Rscript R/select_sample.R [--input arquivo.csv] [--output arquivo.csv]")
+      stop("Uso: Rscript scripts/select_sample.R [--input arquivo.csv] [--output arquivo.csv]")
     }
   }
   values
 }
 
-read_approved_spdx <- function(path = file.path("data", "osi_approved_spdx_ids.txt")) {
+read_approved_spdx <- function(path = reference_spdx_path()) {
   if (!file.exists(path)) stop(sprintf("Lista SPDX/OSI não encontrada: %s", path))
   values <- trimws(readLines(path, encoding = "UTF-8", warn = FALSE))
   values <- values[nzchar(values) & !startsWith(values, "#")]
@@ -324,12 +331,4 @@ run_selection <- function(options) {
   approved_ids <- read_approved_spdx()
   if (nzchar(options$input)) revalidate_selection(options$input, options$output, token, approved_ids)
   else run_full_selection(options$output, token, approved_ids)
-}
-
-# Permite source() sem iniciar requisições; a coleta só começa no modo script.
-if (sys.nframe() == 0L) {
-  script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-  project_dir <- if (length(script_arg)) normalizePath(file.path(dirname(sub("^--file=", "", script_arg[[1L]])), ".."), mustWork = TRUE) else getwd()
-  setwd(project_dir)
-  run_selection(parse_selection_options(commandArgs(trailingOnly = TRUE)))
 }

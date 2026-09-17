@@ -7,10 +7,85 @@
 if (!requireNamespace("jsonlite", quietly = TRUE)) {
   stop("O pacote 'jsonlite' é necessário. Instale-o com install.packages('jsonlite').")
 }
+if (!requireNamespace("yaml", quietly = TRUE)) {
+  stop("O pacote 'yaml' é necessário. Instale-o com install.packages('yaml').")
+}
+
+# Permite executar scripts a partir de qualquer diretório e ainda localizar a raiz.
+find_project_root <- function() {
+  file_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  current <- if (length(file_argument)) {
+    candidate <- sub("^--file=", "", file_argument[[1L]])
+    candidate <- if (file.exists(candidate)) candidate else file.path(getwd(), candidate)
+    dirname(normalizePath(candidate, mustWork = FALSE))
+  } else {
+    getwd()
+  }
+  current <- normalizePath(current, mustWork = FALSE)
+  repeat {
+    if (file.exists(file.path(current, "settings.yml")) || dir.exists(file.path(current, ".git"))) return(current)
+    parent <- dirname(current)
+    if (identical(parent, current)) return(normalizePath(getwd(), mustWork = FALSE))
+    current <- parent
+  }
+}
+
+PROJECT_ROOT <- find_project_root()
+
+## Valor padrão para listas JSON ou YAML em que um campo pode estar ausente.
+`%||%` <- function(x, y) if (is.null(x) || length(x) == 0L) y else x
+
+SETTINGS <- yaml::read_yaml(file.path(PROJECT_ROOT, "settings.yml"))
+
+setting <- function(section, key, default = NULL) {
+  values <- SETTINGS[[section]] %||% list()
+  value <- values[[key]]
+  if (is.null(value) || length(value) == 0L) default else value
+}
+
+project_path <- function(...) file.path(PROJECT_ROOT, ...)
+
+resolve_project_path <- function(path) {
+  path <- as.character(path %||% "")[[1L]]
+  if (!nzchar(path)) return(path)
+  if (grepl("^~", path)) return(path.expand(path))
+  if (grepl("^(/|[A-Za-z]:[\\\\/])", path)) return(path)
+  project_path(path)
+}
+
+project_relative <- function(path) {
+  absolute <- normalizePath(path, mustWork = FALSE)
+  root <- normalizePath(PROJECT_ROOT, mustWork = FALSE)
+  prefix <- paste0(root, .Platform$file.sep)
+  if (startsWith(absolute, prefix)) substring(absolute, nchar(prefix) + 1L) else absolute
+}
+
+path_setting <- function(name, default) {
+  value <- setting("paths", name, default)
+  if (is.list(value)) value <- value[[1L]]
+  project_path(as.character(value))
+}
+
+sample_path <- function() path_setting("sample", "inputs/final/selected_repositories.csv")
+raw_checkpoint_path <- function() path_setting("raw_checkpoint", "inputs/raw/repository_results.jsonl")
+reference_spdx_path <- function() path_setting("reference_spdx", "inputs/reference/osi_approved_spdx_ids.txt")
+output_root_path <- function() path_setting("output_root", "outputs")
+
+output_paths <- function(output = output_root_path()) {
+  root <- resolve_project_path(output)
+  list(
+    root = root,
+    tables = file.path(root, "tables"),
+    figures = file.path(root, "figures"),
+    reports = file.path(root, "reports"),
+    metadata = file.path(root, "metadata")
+  )
+}
 
 # Os dois limites definem os snapshots históricos comparados pelo experimento.
-PRE_UNTIL <- "2018-05-24T23:59:59Z"
-POST_UNTIL <- "2026-06-30T23:59:59Z"
+PRE_UNTIL <- as.character(setting("analysis", "pre_until", "2018-05-24T23:59:59Z"))
+POST_UNTIL <- as.character(setting("analysis", "post_until", "2026-06-30T23:59:59Z"))
+ALPHA <- as.numeric(setting("analysis", "alpha", 0.05))
 COLLECTOR_PROTOCOL_VERSION <- "open-source-no-size-limit-2026-09"
 RULE_VERSION <- "semantic-conservative-2026-09-c1-c4"
 
@@ -144,9 +219,6 @@ RULES <- list(
   )
 )
 
-## Valor padrão para listas JSON em que um campo pode estar ausente ou vazio.
-`%||%` <- function(x, y) if (is.null(x) || length(x) == 0L) y else x
-
 ## JSON pode representar o mesmo campo como lista, vetor ou valor escalar.
 ## Estas funções normalizam esses casos antes de qualquer comparação.
 scalar <- function(x, default = "") {
@@ -266,7 +338,7 @@ index_records <- function(records) {
 }
 
 # Permite usar um token local sem colocá-lo no código-fonte.
-read_dotenv_token <- function(path = ".env") {
+read_dotenv_token <- function(path = project_path(".env")) {
   if (!file.exists(path)) return("")
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
   match <- grep("^GITHUB_TOKEN=", lines, value = TRUE)

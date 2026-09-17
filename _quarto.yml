@@ -4,30 +4,26 @@ project:
   execute-dir: project
   render:
     - index.qmd
-    - resultados.qmd
-    - dados.qmd
-    - metodologia.qmd
-    - reproducao.qmd
 
 website:
   title: "Documentação de privacidade em projetos de IA/ML"
-  site-url: https://diegopn.github.io/GitHubPrivacyExperiment_R/
+  site-url: https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/
   navbar:
     background: primary
     left:
       - href: index.qmd
         text: Início
-      - href: resultados.qmd
+      - href: index.qmd#resultados
         text: Resultados
-      - href: dados.qmd
+      - href: index.qmd#dados
         text: Dados coletados
-      - href: metodologia.qmd
+      - href: index.qmd#metodologia
         text: Metodologia
-      - href: reproducao.qmd
+      - href: index.qmd#reproducao
         text: Reprodução
     right:
       - icon: github
-        href: https://github.com/diegopn/GitHubPrivacyExperiment_R
+        href: https://github.com/diegopn/github-ai-ml-privacy-documentation-gdpr
         aria-label: GitHub
   page-footer:
     left: "Experimento de documentação de privacidade"
@@ -37,13 +33,14 @@ format:
   html:
     lang: pt-BR
     theme: cosmo
-    css: styles.css
+    css: site/styles.css
     toc: true
     code-fold: true
     code-tools: true
     page-layout: full
     smooth-scroll: true
+    embed-resources: true
 
 resources:
-  - data
+  - inputs
   - outputs

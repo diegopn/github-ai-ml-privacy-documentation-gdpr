@@ -4,26 +4,39 @@ subtitle: "Projetos open source de IA/ML observados antes e depois do início da
 ---
 
 ```{r}
-# Carrega os resultados já gerados pelo pipeline reprodutível.
-stats <- jsonlite::read_json("outputs/estatisticas.json", simplifyVector = FALSE)
-dataset <- read.csv("outputs/dataset_final_privacidade_gdpr.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+# Carrega os artefatos versionados usados em todas as seções da página.
+stats <- jsonlite::read_json("outputs/metadata/statistics.json", simplifyVector = FALSE)
+sample <- read.csv("inputs/final/selected_repositories.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+dataset <- read.csv("outputs/tables/final_privacy_gdpr_dataset.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+evidence <- read.csv("outputs/tables/positive_evidence.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+
+fmt_p <- function(value) format(as.numeric(value), scientific = TRUE, digits = 6)
+r1 <- stats$rq1_mcnemar
+r2 <- stats$rq2_wilcoxon
+w <- r2$wilcoxon_signed_rank_exact
+codes <- names(stats$criterion_frequencies$post)
+pre_frequency <- as.numeric(unlist(stats$criterion_frequencies$pre))
+post_frequency <- as.numeric(unlist(stats$criterion_frequencies$post))
 total <- as.integer(stats$total_input_rows)
-complete <- as.integer(stats$complete_pairs)
-pre_d1 <- as.integer(stats$rq1_mcnemar$pre_ones)
-post_d1 <- as.integer(stats$rq1_mcnemar$post_ones)
-pre_score <- as.numeric(stats$rq2_wilcoxon$pre_mean)
-post_score <- as.numeric(stats$rq2_wilcoxon$post_mean)
-p_mcnemar <- as.numeric(stats$rq1_mcnemar$exact_mcnemar_p_two_sided)
-p_wilcoxon <- as.numeric(stats$rq2_wilcoxon$wilcoxon_signed_rank_exact$p_two_sided_exact)
+complete_pairs <- as.integer(stats$complete_pairs)
+pre_d1 <- as.integer(r1$pre_ones)
+post_d1 <- as.integer(r1$post_ones)
+pre_score <- as.numeric(r2$pre_mean)
+post_score <- as.numeric(r2$post_mean)
+
+# Seleciona os campos essenciais para a tabela legível da página.
+view <- dataset[, c("repository", "language", "stars", "issues", "pre_D1", "post_D1", "pre_score", "post_score", "pre_document_paths", "post_document_paths")]
+names(view) <- c("Repositório", "Linguagem", "Estrelas", "Issues", "D1 pré", "D1 pós", "Score pré", "Score pós", "Documentos pré", "Documentos pós")
 ```
 
 ::: {.hero-note}
-Este site apresenta a amostra, os documentos recuperados, as evidências
-textuais e os resultados estatísticos do experimento. Os valores exibidos são
-gerados diretamente dos artefatos versionados no repositório.
+Esta página reúne a amostra, os documentos recuperados, as evidências
+textuais, a metodologia, os resultados estatísticos e as instruções de
+reprodução. Os valores exibidos são gerados diretamente dos artefatos
+versionados no repositório.
 :::
 
-## Visão geral
+## Visão geral {#visao-geral}
 
 ::: {.metric-grid}
 ::: {.metric-card}
@@ -32,7 +45,7 @@ Repositórios na amostra
 :::
 
 ::: {.metric-card}
-### `r complete`
+### `r complete_pairs`
 Pares históricos completos
 :::
 
@@ -47,27 +60,251 @@ PDE Score médio pós-GDPR
 :::
 :::
 
-## Resultado principal
+## Resultado principal {#resultado-principal}
 
-No período pré-GDPR, `r pre_d1` de `r complete` repositórios apresentaram
-evidência documental de privacidade (D1=1). No período pós-GDPR, foram
-`r post_d1` repositórios. O teste exato de McNemar bicaudal resultou em
-`r format(p_mcnemar, scientific = TRUE, digits = 6)`.
+No período pré-GDPR, `r pre_d1` de `r complete_pairs` repositórios
+apresentaram evidência documental de privacidade (D1=1). No período pós-GDPR,
+foram `r post_d1` repositórios. O teste exato de McNemar bicaudal resultou em
+`r fmt_p(r1$exact_mcnemar_p_two_sided)`.
 
 O PDE Score médio passou de `r sprintf("%.3f", pre_score)` para
 `r sprintf("%.3f", post_score)`. O teste exato de Wilcoxon pareado resultou em
-`r format(p_wilcoxon, scientific = TRUE, digits = 6)`.
+`r fmt_p(w$p_two_sided_exact)`.
 
-## Navegação
+## Resultados detalhados {#resultados}
 
-- [Resultados detalhados](resultados.qmd): tabelas, gráficos e testes.
-- [Dados coletados](dados.qmd): amostra, documentos e evidências.
-- [Metodologia](metodologia.qmd): critérios e desenho da pesquisa.
-- [Reprodução](reproducao.qmd): execução do pipeline e dos relatórios.
+### Presença documental (D1)
 
-## Arquivos principais
+```{r, echo=FALSE, fig.width=7, fig.height=4}
+# Compara as contagens D1 nos dois snapshots históricos.
+barplot(
+  c(as.numeric(r1$pre_ones), as.numeric(r1$post_ones)),
+  names.arg = c("Pré-GDPR", "Pós-GDPR"),
+  ylab = "Repositórios com D1 = 1",
+  col = c("#6c8ebf", "#1d4e89"),
+  ylim = c(0, max(18, as.numeric(r1$post_ones) + 2)),
+  main = "Evidência documental de privacidade"
+)
+```
 
-- [Dataset final](outputs/dataset_final_privacidade_gdpr.csv)
-- [Evidências positivas](outputs/evidencias_positivas.csv)
-- [Estatísticas em JSON](outputs/estatisticas.json)
-- [Checkpoint bruto da coleta](data/raw/repository_results.jsonl)
+| Medida | Resultado |
+|---|---:|
+| D1 pré-GDPR | `r r1$pre_ones` (`r sprintf("%.1f%%", as.numeric(r1$pre_proportion) * 100)`) |
+| D1 pós-GDPR | `r r1$post_ones` (`r sprintf("%.1f%%", as.numeric(r1$post_proportion) * 100)`) |
+| Pré 1 → pós 0 | `r r1$pre1_post0_b` |
+| Pré 0 → pós 1 | `r r1$pre0_post1_c` |
+| p exato de McNemar bicaudal | `r fmt_p(r1$exact_mcnemar_p_two_sided)` |
+
+### PDE Score
+
+```{r, echo=FALSE, fig.width=7, fig.height=4}
+# Mostra a frequência de cada critério no período pós-GDPR.
+barplot(
+  post_frequency,
+  names.arg = codes,
+  ylab = "Repositórios",
+  col = "#1d4e89",
+  main = "Critérios documentais no período pós-GDPR"
+)
+```
+
+| Medida | Pré | Pós |
+|---|---:|---:|
+| Média | `r sprintf("%.3f", as.numeric(r2$pre_mean))` | `r sprintf("%.3f", as.numeric(r2$post_mean))` |
+| Mediana | `r sprintf("%.3f", as.numeric(r2$pre_median))` | `r sprintf("%.3f", as.numeric(r2$post_median))` |
+| IQR | `r paste(r2$pre_iqr, collapse = "–")` | `r paste(r2$post_iqr, collapse = "–")` |
+
+| Medida pareada | Resultado |
+|---|---:|
+| Aumentos / reduções / iguais | `r r2$increased` / `r r2$decreased` / `r r2$unchanged` |
+| W+ / W− | `r sprintf("%.1f", as.numeric(w$w_plus))` / `r sprintf("%.1f", as.numeric(w$w_minus))` |
+| p exato de Wilcoxon bicaudal | `r fmt_p(w$p_two_sided_exact)` |
+| Correlação bisserial de postos | `r sprintf("%.3f", as.numeric(w$rank_biserial))` |
+
+### Frequência dos critérios
+
+```{r}
+criteria <- data.frame(Critério = codes, Pré = pre_frequency, Pós = post_frequency, check.names = FALSE)
+knitr::kable(criteria, format = "html", caption = "Frequência de C1 a C7")
+```
+
+### Transições observadas em D1
+
+```{r}
+# A tabela resume as quatro transições possíveis entre os períodos.
+has_pair <- dataset$pre_D1 != "" & dataset$post_D1 != ""
+transition <- table(
+  factor(dataset$pre_D1[has_pair], levels = c("0", "1")),
+  factor(dataset$post_D1[has_pair], levels = c("0", "1"))
+)
+colnames(transition) <- c("Pós = 0", "Pós = 1")
+rownames(transition) <- c("Pré = 0", "Pré = 1")
+knitr::kable(as.data.frame.matrix(transition), format = "html", caption = "Matriz de transição de D1")
+```
+
+### Evidências positivas
+
+```{r}
+# Evita que delimitadores Markdown coletados sejam interpretados pelo Quarto.
+evidence_display <- evidence
+evidence_display$evidence <- gsub(":::", ": : :", evidence_display$evidence, fixed = TRUE)
+knitr::kable(evidence_display, format = "html", caption = "Trechos que sustentaram classificações positivas")
+```
+
+## Dados coletados {#dados}
+
+### Amostra
+
+A amostra contém `r nrow(sample)` repositórios com licença identificada por
+SPDX e aprovada pela OSI. O arquivo usado pelo pipeline está disponível em
+[selected_repositories.csv](inputs/final/selected_repositories.csv).
+
+### Repositórios e documentos analisados
+
+A tabela abaixo mostra os metadados principais, a classificação em cada
+período e os caminhos dos documentos recuperados. O dataset completo inclui
+também os SHAs dos commits, trechos de evidência, observações e metadados de
+acessibilidade.
+
+```{r}
+knitr::kable(view, format = "html", caption = "Registros do dataset final")
+```
+
+### Arquivos para inspeção
+
+- [Dataset final completo](outputs/tables/final_privacy_gdpr_dataset.csv)
+- [Amostra utilizada](outputs/tables/sample_used.csv)
+- [Evidências positivas](outputs/tables/positive_evidence.csv)
+- [Checkpoint bruto JSONL](inputs/raw/repository_results.jsonl)
+- [Manifesto da execução](outputs/metadata/manifest.json)
+
+## Metodologia {#metodologia}
+
+### Desenho
+
+O estudo compara o mesmo conjunto de repositórios em dois snapshots
+históricos: o último commit até 24 de maio de 2018 e o último commit até 30
+de junho de 2026. A unidade de análise é o repositório público de IA/ML.
+
+```{mermaid}
+flowchart LR
+  A[Busca por tópicos IA/ML] --> B[Filtros de seleção]
+  B --> C[Amostra congelada]
+  C --> D[Snapshot pré-GDPR]
+  C --> E[Snapshot pós-GDPR]
+  D --> F[Classificação C1-C7 e D1]
+  E --> F
+  F --> G[McNemar e Wilcoxon]
+  G --> H[Dataset, relatórios e site]
+```
+
+### Seleção da amostra
+
+O seletor consulta os tópicos-base `artificial-intelligence`, `deep-learning`
+e `machine-learning`. Em seguida, aplica os critérios de visibilidade pública,
+licença SPDX/OSI aprovada, ausência de fork e arquivamento, criação anterior a
+25 de maio de 2018, pelo menos 500 estrelas, pelo menos 100 issues reais,
+atividade mínima de 24 meses e atividade antes e depois da data de referência.
+
+A seleção completa pode ser executada por `scripts/select_sample.R`. O CSV usado nos
+resultados publicados permanece versionado para que os números do artigo não
+mudem quando a API do GitHub atualizar seus metadados.
+
+### Documentação e critérios
+
+São analisados README de raiz e documentos textuais cujos nomes ou caminhos
+indicam privacidade, segurança, proteção de dados, termos, consentimento,
+retenção ou conformidade. D1 indica evidência documental contextualizada. O
+PDE Score soma sete critérios:
+
+1. dados pessoais;
+2. finalidade do tratamento;
+3. base legal;
+4. direitos dos titulares;
+5. retenção ou exclusão;
+6. compartilhamento ou transferência;
+7. proteção contra vazamento ou acesso não autorizado.
+
+Menções isoladas, bibliografia, testes, exemplos, dependências e listas de
+links não são suficientes para marcar um critério.
+
+### Estatística
+
+Para D1, o pipeline calcula o teste exato de McNemar bicaudal. Para o PDE
+Score, calcula o teste exato de Wilcoxon pareado, excluindo diferenças zero e
+usando postos médios em empates. O nível de significância adotado é
+$\alpha=0{,}05$.
+
+Os resultados medem evidência documental versionada. Eles não constituem
+auditoria jurídica nem permitem atribuir causalidade exclusiva à GDPR.
+
+## Reprodução {#reproducao}
+
+### Requisitos
+
+- R 4.5 ou superior;
+- pacote `jsonlite` para o pipeline;
+- `knitr`, `rmarkdown` e Quarto para renderizar este site;
+- `yaml` para ler `settings.yml`;
+- `curl` para novas chamadas à API do GitHub;
+- token `GITHUB_TOKEN` somente quando uma nova coleta for necessária.
+
+### Análise com os dados versionados
+
+Com o checkpoint já disponível, a análise não precisa acessar a API:
+
+```bash
+Rscript scripts/analysis.R
+```
+
+Isso recria o dataset, as estatísticas, as evidências, os gráficos e os
+relatórios em `outputs/`.
+
+### Pipeline completo
+
+Para reutilizar a amostra congelada e coletar apenas registros ausentes:
+
+```bash
+Rscript scripts/run_pipeline.R --workers 1
+```
+
+Para gerar uma nova amostra usando a API:
+
+```bash
+export GITHUB_TOKEN="seu-token"
+Rscript scripts/run_pipeline.R --select --workers 1
+```
+
+O seletor também pode ser executado isoladamente:
+
+```bash
+Rscript scripts/select_sample.R --output inputs/final/selected_repositories.csv
+```
+
+### Site
+
+Com o Quarto instalado, visualize localmente:
+
+```bash
+quarto preview
+```
+
+Para gerar os arquivos estáticos:
+
+```bash
+quarto render
+```
+
+O workflow em `.github/workflows/quarto-publish.yml` publica esta página no
+GitHub Pages após cada atualização da branch principal.
+
+### Artefatos
+
+O repositório mantém a amostra, o checkpoint bruto, o dataset final, as
+evidências positivas, as estatísticas, os gráficos e os relatórios. O arquivo
+`outputs/metadata/manifest.json` registra os hashes e versões usados na execução.
+
+## Código e licença {#licenca}
+
+O código-fonte e os dados derivados estão disponíveis no repositório sob a
+[Licença MIT](LICENSE).

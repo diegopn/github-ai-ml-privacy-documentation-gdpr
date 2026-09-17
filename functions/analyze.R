@@ -3,16 +3,23 @@
 ## regras sobre os documentos recuperados e produz os artefatos analisáveis.
 
 script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("R", "analyze.R")
-source(file.path(dirname(script_path_for_source), "common.R"))
+script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("functions", "analyze.R")
+common_candidates <- unique(c(
+  file.path(dirname(script_path_for_source), "common.R"),
+  file.path(dirname(script_path_for_source), "..", "functions", "common.R"),
+  file.path("functions", "common.R")
+))
+common_path <- common_candidates[file.exists(common_candidates)][[1L]]
+if (is.na(common_path) || !nzchar(common_path)) stop("functions/common.R não encontrado.")
+source(common_path)
 
 # Define os arquivos de entrada e saída usados quando o analisador é executado
 # diretamente pelo Rscript.
 parse_options <- function(args) {
   values <- list(
-    input = file.path("data", "repositorios_selecionados.csv"),
-    raw = file.path("data", "raw", "repository_results.jsonl"),
-    output = "outputs"
+    input = sample_path(),
+    raw = raw_checkpoint_path(),
+    output = output_root_path()
   )
   index <- 1L
   while (index <= length(args)) {
@@ -21,7 +28,7 @@ parse_options <- function(args) {
       values[[sub("^--", "", option)]] <- args[[index + 1L]]
       index <- index + 2L
     } else {
-      stop("Uso: Rscript R/analyze.R [--input arquivo.csv] [--raw arquivo.jsonl] [--output diretório]")
+      stop("Uso: Rscript scripts/analysis.R [--input arquivo.csv] [--raw arquivo.jsonl] [--output diretório]")
     }
   }
   values
@@ -57,7 +64,7 @@ records_to_dataset <- function(sample, records, source_hash) {
   list(rows = rows, data = as.data.frame(values, stringsAsFactors = FALSE, check.names = FALSE))
 }
 
-calculate_statistics <- function(records, dataset, sample) {
+calculate_statistics <- function(records, dataset, sample, input_path = sample_path()) {
   # Os testes usam somente pares completos; contagens e repositórios incompletos
   # continuam no relatório para não desaparecerem silenciosamente.
   complete <- vapply(records, is_complete_record, logical(1L))
@@ -111,7 +118,8 @@ calculate_statistics <- function(records, dataset, sample) {
     ),
     criterion_frequencies = list(pre = as.list(pre_frequency), post = as.list(post_frequency)),
     generated_at = generated_at,
-    source_csv = normalizePath(file.path("data", "repositorios_selecionados.csv"), mustWork = FALSE),
+    source_csv = project_relative(input_path),
+    significance_level = ALPHA,
     source_sha256 = unique(dataset$sample_source_sha256)[[1L]] %||% "",
     pre_until = PRE_UNTIL, post_until = POST_UNTIL,
     classification_rule_version = RULE_VERSION,
@@ -141,7 +149,8 @@ write_stats_markdown <- function(path, stats) {
     sprintf("- Repositórios com licença SPDX/OSI aprovada: **%d**.", stats$open_source_repositories),
     sprintf("- Pares completos: **%d**.", stats$complete_pairs),
     sprintf("- Pares incompletos preservados e excluídos dos testes: **%d**.", stats$incomplete_pairs),
-    sprintf("- Pré: último commit até `%s`.", PRE_UNTIL), sprintf("- Pós: último commit até `%s`.", POST_UNTIL), "",
+    sprintf("- Pré: último commit até `%s`.", PRE_UNTIL), sprintf("- Pós: último commit até `%s`.", POST_UNTIL),
+    sprintf("- Nível de significância: **α = %.3f**.", ALPHA), "",
     "## RQ1: McNemar exato bicaudal para D1", "",
     "| Medida | Resultado |", "|---|---:|",
     sprintf("| Pré D1 = 1 | %d (%s) |", r1$pre_ones, fmt_pct(r1$pre_proportion)),
@@ -168,7 +177,7 @@ write_stats_markdown <- function(path, stats) {
   writeLines(enc2utf8(lines), path, useBytes = TRUE)
 }
 
-write_report <- function(path, stats, sample, source_hash, dataset) {
+write_report <- function(path, stats, sample, source_hash, dataset, input_path = sample_path(), raw_path = raw_checkpoint_path()) {
   # Descreve desenho, população, limitações e resultados em linguagem de artigo.
   r1 <- stats$rq1_mcnemar
   r2 <- stats$rq2_wilcoxon
@@ -177,10 +186,12 @@ write_report <- function(path, stats, sample, source_hash, dataset) {
     "## Estado da execução", "",
     "Este projeto executa a coleta, a classificação textual e a análise estatística em R. A classificação final usa regras semânticas conservadoras.", "",
     "## Entrada e desenho", "",
-    sprintf("- CSV de entrada: `%s`.", normalizePath(file.path("data", "repositorios_selecionados.csv"), mustWork = FALSE)),
+    sprintf("- CSV de entrada: `%s`.", project_relative(input_path)),
     sprintf("- SHA-256 do CSV: `%s`.", source_hash), sprintf("- Linhas da amostra: **%d**.", nrow(sample)),
     "- Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.",
-    sprintf("- Versão pré-GDPR: último commit até `%s`.", PRE_UNTIL), sprintf("- Versão pós-GDPR: último commit até `%s`.", POST_UNTIL), "",
+    sprintf("- Versão pré-GDPR: último commit até `%s`.", PRE_UNTIL),
+    sprintf("- Versão pós-GDPR: último commit até `%s`.", POST_UNTIL),
+    sprintf("- Nível de significância: **α = %.3f**.", ALPHA), "",
     "A comparação é pareada e observacional. O resultado mede evidência documental versionada; não demonstra causalidade da GDPR nem conformidade jurídica.", "",
     "## Classificação", "",
     "O coletor filtra README de raiz e documentos textuais ligados a privacidade, segurança, proteção de dados, termos, jurídico, retenção, consentimento e conformidade. O analisador exclui datasets, testes, fixtures, exemplos, dependências e listas bibliográficas.", "",
@@ -193,27 +204,46 @@ write_report <- function(path, stats, sample, source_hash, dataset) {
     "## Limitações", "",
     "Documentos externos ao repositório, práticas não versionadas e textos que não correspondem às expressões das regras podem não ser detectados. O score é discreto e concentrado em zero. Os p-valores devem ser interpretados junto com as contagens, evidências e tamanho das diferenças.", "",
     "## Reprodução", "",
-    "A coleta grava um checkpoint JSONL em `data/raw/repository_results.jsonl`. A análise pode ser repetida sem acesso à API usando o mesmo CSV e esse checkpoint. O dataset, as estatísticas e os relatórios são derivados desses arquivos.", "",
+    sprintf("A coleta grava um checkpoint JSONL em `%s`. A análise pode ser repetida sem acesso à API usando o mesmo CSV e esse checkpoint. O dataset, as estatísticas e os relatórios são derivados desses arquivos.", project_relative(raw_path)), "",
     sprintf("Versão das regras: `%s`.", RULE_VERSION), sprintf("Linhas no dataset final: **%d**.", nrow(dataset))
   )
   writeLines(enc2utf8(lines), path, useBytes = TRUE)
 }
 
-write_manifest <- function(path, stats) {
+write_manifest <- function(path, stats, input_path = sample_path(), raw_path = raw_checkpoint_path()) {
   # Registra hashes, versões e nomes dos artefatos para reconstruir a execução.
   manifest <- list(
     generated_at = stats$generated_at,
-    input_csv = stats$source_csv,
+    project_name = as.character(setting("project", "name", "privacy-documentation-experiment")),
+    input_csv = project_relative(input_path),
     input_sha256 = stats$source_sha256,
     input_rows = stats$total_input_rows,
     dataset_rows = stats$total_input_rows,
     complete_pairs = stats$complete_pairs,
     incomplete_pairs = stats$incomplete_pairs,
+    significance_level = ALPHA,
     classification_rule_version = RULE_VERSION,
     collector_protocol_version = COLLECTOR_PROTOCOL_VERSION,
     wilcoxon_method = "exact-two-sided-average-ranks-zero-differences-excluded",
     sample_requires_osi_approved_license = TRUE,
-    files = c("amostra_utilizada.csv", "amostra_utilizada.sha256.txt", "dataset_final_privacidade_gdpr.csv", "evidencias_positivas.csv", "estatisticas.json", "resultados_estatisticos.md", "experimento_privacidade_gdpr.md", "../data/raw/repository_results.jsonl")
+    files = c(
+      project_relative(input_path), project_relative(raw_path),
+      "outputs/tables/sample_used.csv",
+      "outputs/tables/final_privacy_gdpr_dataset.csv",
+      "outputs/tables/positive_evidence.csv",
+      "outputs/tables/statistics_r.csv",
+      "outputs/tables/criterion_frequencies.csv",
+      "outputs/tables/d1_transition_table.csv",
+      "outputs/figures/d1_pre_post.png",
+      "outputs/figures/criteria_post_gdpr.png",
+      "outputs/metadata/statistics.json",
+      "outputs/metadata/statistics_r.rds",
+      "outputs/metadata/sample_used.sha256.txt",
+      "outputs/metadata/session_info.txt",
+      "outputs/reports/statistical_results.md",
+      "outputs/reports/privacy_documentation_experiment_gdpr.md",
+      "outputs/metadata/manifest.json"
+    )
   )
   jsonlite::write_json(manifest, path, auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
 }
@@ -239,7 +269,7 @@ write_positive_evidence <- function(path, dataset) {
   write.csv(result, path, row.names = FALSE, fileEncoding = "UTF-8")
 }
 
-write_derived_outputs <- function(output_dir, stats, dataset) {
+write_derived_outputs <- function(paths, stats, dataset) {
   # Gera tabelas, RDS e gráficos derivados sem novas chamadas à API.
   complete <- dataset$pre_D1 != "" & dataset$post_D1 != ""
   transition <- table(
@@ -248,7 +278,7 @@ write_derived_outputs <- function(output_dir, stats, dataset) {
   )
   colnames(transition) <- c("post_0", "post_1")
   rownames(transition) <- c("pre_0", "pre_1")
-  write.csv(as.data.frame.matrix(transition), file.path(output_dir, "tabela_transicao_D1.csv"), fileEncoding = "UTF-8")
+  write.csv(as.data.frame.matrix(transition), file.path(paths$tables, "d1_transition_table.csv"), fileEncoding = "UTF-8")
 
   frequencies <- data.frame(
     criterion = names(RULES),
@@ -256,7 +286,7 @@ write_derived_outputs <- function(output_dir, stats, dataset) {
     post = vapply(names(RULES), function(code) stats$criterion_frequencies$post[[code]], numeric(1L)),
     stringsAsFactors = FALSE
   )
-  write.csv(frequencies, file.path(output_dir, "frequencia_criterios.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+  write.csv(frequencies, file.path(paths$tables, "criterion_frequencies.csv"), row.names = FALSE, fileEncoding = "UTF-8")
 
   r1 <- stats$rq1_mcnemar
   r2 <- stats$rq2_wilcoxon
@@ -266,13 +296,13 @@ write_derived_outputs <- function(output_dir, stats, dataset) {
     valor = c(stats$total_input_rows, stats$complete_pairs, stats$complete_pairs, r1$pre_ones, r1$post_ones, r1$pre1_post0_b, r1$pre0_post1_c, r1$exact_mcnemar_p_two_sided, r2$pre_mean, r2$post_mean, r2$difference_mean, r2$increased, r2$decreased, r2$unchanged, w$n_nonzero, w$w_plus, w$w_minus, w$p_two_sided_exact, w$rank_biserial),
     stringsAsFactors = FALSE
   )
-  write.csv(summary, file.path(output_dir, "estatisticas_r.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-  saveRDS(stats, file.path(output_dir, "estatisticas_r.rds"))
+  write.csv(summary, file.path(paths$tables, "statistics_r.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+  saveRDS(stats, file.path(paths$metadata, "statistics_r.rds"))
 
-  png(file.path(output_dir, "d1_pre_pos.png"), width = 1000, height = 650, res = 120)
+  png(file.path(paths$figures, "d1_pre_post.png"), width = 1000, height = 650, res = 120)
   barplot(c(r1$pre_ones, r1$post_ones), names.arg = c("Pré-GDPR", "Pós-GDPR"), ylab = "Repositórios com D1 = 1", main = "Presença documental de privacidade", col = "grey35")
   dev.off()
-  png(file.path(output_dir, "criterios_pos_gdpr.png"), width = 1000, height = 650, res = 120)
+  png(file.path(paths$figures, "criteria_post_gdpr.png"), width = 1000, height = 650, res = 120)
   barplot(frequencies$post, names.arg = frequencies$criterion, ylab = "Repositórios", main = "Critérios documentais no período pós-GDPR", col = "grey45")
   dev.off()
 }
@@ -280,34 +310,35 @@ write_derived_outputs <- function(output_dir, stats, dataset) {
 run_analysis <- function(options) {
   # Pipeline offline: valida entradas, achata o checkpoint, calcula estatísticas
   # e grava todos os arquivos de reprodução no diretório de saída.
-  dir.create(options$output, recursive = TRUE, showWarnings = FALSE)
-  sample <- read_sample(options$input)
+  input_path <- resolve_project_path(options$input %||% sample_path())
+  raw_path <- resolve_project_path(options$raw %||% raw_checkpoint_path())
+  paths <- output_paths(options$output %||% output_root_path())
+  for (directory in paths[-1L]) dir.create(directory, recursive = TRUE, showWarnings = FALSE)
+
+  sample <- read_sample(input_path)
   validate_open_source_sample(sample)
-  source_hash <- sha256_file(options$input)
-  records <- read_jsonl(options$raw)
+  source_hash <- sha256_file(input_path)
+  records <- read_jsonl(raw_path)
   flattened <- records_to_dataset(sample, records, source_hash)
   dataset <- flattened$data
-  write.csv(sample, file.path(options$output, "amostra_utilizada.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-  writeLines(c(paste0("sha256  ", source_hash), paste0("source  ", normalizePath(options$input, mustWork = FALSE)), paste0("rows  ", nrow(sample))), file.path(options$output, "amostra_utilizada.sha256.txt"), useBytes = TRUE)
-  write.csv(dataset, file.path(options$output, "dataset_final_privacidade_gdpr.csv"), row.names = FALSE, fileEncoding = "UTF-8", na = "")
-  write_positive_evidence(file.path(options$output, "evidencias_positivas.csv"), dataset)
-  # O dataset é salvo antes das estatísticas para que mesmo uma falha posterior
+
+  write.csv(sample, file.path(paths$tables, "sample_used.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+  writeLines(
+    c(paste0("sha256  ", source_hash), paste0("source  ", project_relative(input_path)), paste0("rows  ", nrow(sample))),
+    file.path(paths$metadata, "sample_used.sha256.txt"),
+    useBytes = TRUE
+  )
+  write.csv(dataset, file.path(paths$tables, "final_privacy_gdpr_dataset.csv"), row.names = FALSE, fileEncoding = "UTF-8", na = "")
+  write_positive_evidence(file.path(paths$tables, "positive_evidence.csv"), dataset)
+  # O dataset é salvo antes das estatísticas para que uma falha posterior ainda
   # deixe disponível a tabela principal da execução.
-  stats <- calculate_statistics(records, dataset, sample)
-  write_derived_outputs(options$output, stats, dataset)
-  jsonlite::write_json(stats, file.path(options$output, "estatisticas.json"), auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
-  write_stats_markdown(file.path(options$output, "resultados_estatisticos.md"), stats)
-  write_report(file.path(options$output, "experimento_privacidade_gdpr.md"), stats, sample, source_hash, dataset)
-  write_manifest(file.path(options$output, "manifest.json"), stats)
-  writeLines(capture.output(sessionInfo()), file.path(options$output, "session_info.txt"), useBytes = TRUE)
+  stats <- calculate_statistics(records, dataset, sample, input_path)
+  write_derived_outputs(paths, stats, dataset)
+  jsonlite::write_json(stats, file.path(paths$metadata, "statistics.json"), auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
+  write_stats_markdown(file.path(paths$reports, "statistical_results.md"), stats)
+  write_report(file.path(paths$reports, "privacy_documentation_experiment_gdpr.md"), stats, sample, source_hash, dataset, input_path, raw_path)
+  write_manifest(file.path(paths$metadata, "manifest.json"), stats, input_path, raw_path)
+  writeLines(capture.output(sessionInfo()), file.path(paths$metadata, "session_info.txt"), useBytes = TRUE)
   cat(sprintf("Linhas lidas: %d\nPares completos: %d\nMcNemar exato: p = %.15g\nWilcoxon exato: p = %.15g\n", nrow(sample), stats$complete_pairs, stats$rq1_mcnemar$exact_mcnemar_p_two_sided, stats$rq2_wilcoxon$wilcoxon_signed_rank_exact$p_two_sided_exact))
   invisible(stats)
-}
-
-# Evita executar a análise quando este arquivo é apenas carregado por um wrapper.
-if (sys.nframe() == 0L) {
-  script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-  project_dir <- if (length(script_arg)) normalizePath(file.path(dirname(sub("^--file=", "", script_arg[[1L]])), ".."), mustWork = TRUE) else getwd()
-  setwd(project_dir)
-  run_analysis(parse_options(commandArgs(trailingOnly = TRUE)))
 }

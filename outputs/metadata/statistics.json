@@ -61,8 +61,9 @@
       "C7": 9
     }
   },
-  "generated_at": "2026-09-17T00:58:52Z",
-  "source_csv": "/home/diegopn/IdeaProjects/GitHubPrivacyExperiment_R/data/repositorios_selecionados.csv",
+  "generated_at": "2026-09-17T19:24:13Z",
+  "source_csv": "inputs/final/selected_repositories.csv",
+  "significance_level": 0.050000000000000003,
   "source_sha256": "0247427ae2850acc5302f94b585e765434b3f339db54f9e51baa00012583b25b",
   "pre_until": "2018-05-24T23:59:59Z",
   "post_until": "2026-06-30T23:59:59Z",

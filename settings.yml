@@ -1,0 +1,23 @@
+project:
+  name: github-ai-ml-privacy-documentation-gdpr
+  description: Experimento de documentação de privacidade em repositórios públicos de IA/ML
+paths:
+  sample: inputs/final/selected_repositories.csv
+  sample_hash: inputs/final/published_sample.sha256.txt
+  raw_checkpoint: inputs/raw/repository_results.jsonl
+  reference_topics: inputs/reference/ai_ml_topics_used.csv
+  reference_spdx: inputs/reference/osi_approved_spdx_ids.txt
+  output_root: outputs
+analysis:
+  alpha: 0.05
+  pre_until: "2018-05-24T23:59:59Z"
+  post_until: "2026-06-30T23:59:59Z"
+selection:
+  gdpr_date: "2018-05-25T00:00:00Z"
+  min_stars: 500
+  min_issues: 100
+  min_activity_months: 24
+  topics:
+    - artificial-intelligence
+    - deep-learning
+    - machine-learning

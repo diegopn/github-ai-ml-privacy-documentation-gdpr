@@ -35,7 +35,7 @@ jobs:
       - name: Instalar pacotes usados pelo site
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          packages: any::jsonlite any::knitr any::rmarkdown
+          packages: any::jsonlite any::knitr any::rmarkdown any::yaml
 
       - name: Renderizar site
         uses: quarto-dev/quarto-actions/render@v2
