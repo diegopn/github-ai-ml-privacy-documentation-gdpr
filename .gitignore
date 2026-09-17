@@ -7,3 +7,12 @@
 *.body
 *.status
 *.error
+_site/
+.quarto/
+_targets/
+renv/library/
+renv/staging/
+renv/local/
+
+/.quarto/
+**/*.quarto_ipynb

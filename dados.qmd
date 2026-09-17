@@ -1,0 +1,36 @@
+---
+title: "Dados coletados"
+---
+
+```{r}
+# Seleciona colunas de leitura rápida; os CSVs completos continuam disponíveis.
+sample <- read.csv("data/repositorios_selecionados.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+dataset <- read.csv("outputs/dataset_final_privacidade_gdpr.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+view <- dataset[, c("repository", "language", "stars", "issues", "pre_D1", "post_D1", "pre_score", "post_score", "pre_document_paths", "post_document_paths")]
+names(view) <- c("Repositório", "Linguagem", "Estrelas", "Issues", "D1 pré", "D1 pós", "Score pré", "Score pós", "Documentos pré", "Documentos pós")
+```
+
+## Amostra
+
+A amostra contém `r nrow(sample)` repositórios com licença identificada por
+SPDX e aprovada pela OSI. O arquivo usado pelo pipeline está disponível em
+[repositorios_selecionados.csv](data/repositorios_selecionados.csv).
+
+## Repositórios e documentos analisados
+
+A tabela abaixo mostra os metadados principais, a classificação em cada
+período e os caminhos dos documentos recuperados. O dataset completo inclui
+também os SHAs dos commits, trechos de evidência, observações e metadados de
+acessibilidade.
+
+```{r}
+knitr::kable(view, format = "html", caption = "Registros do dataset final")
+```
+
+## Arquivos para inspeção
+
+- [Dataset final completo](outputs/dataset_final_privacidade_gdpr.csv)
+- [Amostra utilizada](outputs/amostra_utilizada.csv)
+- [Evidências positivas](outputs/evidencias_positivas.csv)
+- [Checkpoint bruto JSONL](data/raw/repository_results.jsonl)
+- [Manifesto da execução](outputs/manifest.json)

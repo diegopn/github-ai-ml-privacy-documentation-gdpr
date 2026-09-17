@@ -1,0 +1,66 @@
+---
+title: "Reprodução"
+---
+
+## Requisitos
+
+- R 4.5 ou superior;
+- pacote `jsonlite` para o pipeline;
+- `knitr`, `rmarkdown` e Quarto para renderizar este site;
+- `curl` para novas chamadas à API do GitHub;
+- token `GITHUB_TOKEN` somente quando uma nova coleta for necessária.
+
+## Análise com os dados versionados
+
+Com o checkpoint já disponível, a análise não precisa acessar a API:
+
+```bash
+Rscript R/analysis.R
+```
+
+Isso recria o dataset, as estatísticas, as evidências, os gráficos e os
+relatórios em `outputs/`.
+
+## Pipeline completo
+
+Para reutilizar a amostra congelada e coletar apenas registros ausentes:
+
+```bash
+Rscript R/run_pipeline.R --workers 1
+```
+
+Para gerar uma nova amostra usando a API:
+
+```bash
+export GITHUB_TOKEN="seu-token"
+Rscript R/run_pipeline.R --select --workers 1
+```
+
+O seletor também pode ser executado isoladamente:
+
+```bash
+Rscript R/select_sample.R --output data/repositorios_selecionados.csv
+```
+
+## Site
+
+Com o Quarto instalado, visualize localmente:
+
+```bash
+quarto preview
+```
+
+Para gerar os arquivos estáticos:
+
+```bash
+quarto render
+```
+
+O workflow em `.github/workflows/quarto-publish.yml` publica o conteúdo
+renderizado no GitHub Pages após cada atualização da branch principal.
+
+## Artefatos
+
+O repositório mantém a amostra, o checkpoint bruto, o dataset final, as
+evidências positivas, as estatísticas, os gráficos e os relatórios. O arquivo
+`outputs/manifest.json` registra os hashes e versões usados na execução.

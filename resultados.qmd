@@ -1,0 +1,92 @@
+---
+title: "Resultados"
+---
+
+```{r}
+# Os artefatos estatísticos são a fonte única das tabelas desta página.
+stats <- jsonlite::read_json("outputs/estatisticas.json", simplifyVector = FALSE)
+fmt_p <- function(value) format(as.numeric(value), scientific = TRUE, digits = 6)
+r1 <- stats$rq1_mcnemar
+r2 <- stats$rq2_wilcoxon
+w <- r2$wilcoxon_signed_rank_exact
+codes <- names(stats$criterion_frequencies$post)
+pre_frequency <- as.numeric(unlist(stats$criterion_frequencies$pre))
+post_frequency <- as.numeric(unlist(stats$criterion_frequencies$post))
+dataset <- read.csv("outputs/dataset_final_privacidade_gdpr.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+evidence <- read.csv("outputs/evidencias_positivas.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+```
+
+## Presença documental (D1)
+
+```{r, echo=false, fig.width=7, fig.height=4}
+# Compara as contagens D1 nos dois snapshots históricos.
+barplot(
+  c(as.numeric(r1$pre_ones), as.numeric(r1$post_ones)),
+  names.arg = c("Pré-GDPR", "Pós-GDPR"),
+  ylab = "Repositórios com D1 = 1",
+  col = c("#6c8ebf", "#1d4e89"),
+  ylim = c(0, max(18, as.numeric(r1$post_ones) + 2)),
+  main = "Evidência documental de privacidade"
+)
+```
+
+| Medida | Resultado |
+|---|---:|
+| D1 pré-GDPR | `r r1$pre_ones` (`r sprintf("%.1f%%", as.numeric(r1$pre_proportion) * 100)`) |
+| D1 pós-GDPR | `r r1$post_ones` (`r sprintf("%.1f%%", as.numeric(r1$post_proportion) * 100)`) |
+| Pré 1 → pós 0 | `r r1$pre1_post0_b` |
+| Pré 0 → pós 1 | `r r1$pre0_post1_c` |
+| p exato de McNemar bicaudal | `r fmt_p(r1$exact_mcnemar_p_two_sided)` |
+
+## PDE Score
+
+```{r, echo=false, fig.width=7, fig.height=4}
+# Mostra a frequência de cada critério no período pós-GDPR.
+barplot(
+  post_frequency,
+  names.arg = codes,
+  ylab = "Repositórios",
+  col = "#1d4e89",
+  main = "Critérios documentais no período pós-GDPR"
+)
+```
+
+| Medida | Pré | Pós |
+|---|---:|---:|
+| Média | `r sprintf("%.3f", as.numeric(r2$pre_mean))` | `r sprintf("%.3f", as.numeric(r2$post_mean))` |
+| Mediana | `r sprintf("%.3f", as.numeric(r2$pre_median))` | `r sprintf("%.3f", as.numeric(r2$post_median))` |
+| IQR | `r paste(r2$pre_iqr, collapse = "–")` | `r paste(r2$post_iqr, collapse = "–")` |
+
+| Medida pareada | Resultado |
+|---|---:|
+| Aumentos / reduções / iguais | `r r2$increased` / `r r2$decreased` / `r r2$unchanged` |
+| W+ / W− | `r sprintf("%.1f", as.numeric(w$w_plus))` / `r sprintf("%.1f", as.numeric(w$w_minus))` |
+| p exato de Wilcoxon bicaudal | `r fmt_p(w$p_two_sided_exact)` |
+| Correlação bisserial de postos | `r sprintf("%.3f", as.numeric(w$rank_biserial))` |
+
+## Frequência dos critérios
+
+```{r}
+criteria <- data.frame(Critério = codes, Pré = pre_frequency, Pós = post_frequency, check.names = FALSE)
+knitr::kable(criteria, format = "html", caption = "Frequência de C1 a C7")
+```
+
+## Transições observadas em D1
+
+```{r}
+# A tabela resume as quatro transições possíveis entre os períodos.
+complete <- dataset$pre_D1 != "" & dataset$post_D1 != ""
+transition <- table(
+  factor(dataset$pre_D1[complete], levels = c("0", "1")),
+  factor(dataset$post_D1[complete], levels = c("0", "1"))
+)
+colnames(transition) <- c("Pós = 0", "Pós = 1")
+rownames(transition) <- c("Pré = 0", "Pré = 1")
+knitr::kable(as.data.frame.matrix(transition), format = "html", caption = "Matriz de transição de D1")
+```
+
+## Evidências positivas
+
+```{r}
+knitr::kable(evidence, format = "html", caption = "Trechos que sustentaram classificações positivas")
+```

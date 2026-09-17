@@ -277,11 +277,13 @@ read_dotenv_token <- function(path = ".env") {
 
 # Cliente HTTP mínimo. A API pode responder com limites temporários ou erros
 # transitórios; por isso a função repete a chamada com espera crescente.
-http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L) {
+# Cabeçalhos podem ser retornados quando uma etapa precisa ler a paginação.
+http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L, return_headers = FALSE) {
   body_path <- tempfile(fileext = ".body")
   status_path <- tempfile(fileext = ".status")
   error_path <- tempfile(fileext = ".error")
-  on.exit(unlink(c(body_path, status_path, error_path)), add = TRUE)
+  header_path <- tempfile(fileext = ".headers")
+  on.exit(unlink(c(body_path, status_path, error_path, header_path)), add = TRUE)
 
   for (attempt in seq_len(max_attempts)) {
     headers <- c(
@@ -295,9 +297,9 @@ http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L) 
       "--max-time", "45"
     )
     for (header in headers) args <- c(args, "--header", header)
-    args <- c(args, "--dump-header", tempfile(), "--output", body_path,
+    args <- c(args, "--dump-header", header_path, "--output", body_path,
               "--write-out", "%{http_code}", url)
-    unlink(c(status_path, error_path))
+    unlink(c(status_path, error_path, header_path))
     exit_status <- tryCatch(
       system2("curl", args, stdout = status_path, stderr = error_path),
       error = function(...) 1L
@@ -325,9 +327,13 @@ http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L) 
       detail <- substr(body_text, 1L, 300L)
       paste0("HTTP ", status, if (nzchar(detail)) paste0(": ", detail) else if (nzchar(error_text)) paste0(": ", error_text) else "")
     }
-    return(list(status = status, body = body, error = error))
+    result <- list(status = status, body = body, error = error)
+    if (return_headers) result$headers <- if (file.exists(header_path)) readLines(header_path, warn = FALSE) else character()
+    return(result)
   }
-  list(status = 0L, body = if (parse_json) list() else "", error = "requisição sem resposta")
+  result <- list(status = 0L, body = if (parse_json) list() else "", error = "requisição sem resposta")
+  if (return_headers) result$headers <- character()
+  result
 }
 
 # Codifica cada componente do caminho sem transformar as barras em texto.
@@ -337,7 +343,7 @@ encode_path <- function(path) {
 }
 
 # Monta chamadas JSON autenticadas para a API do GitHub.
-github_api <- function(path, params = list(), token = "") {
+github_api <- function(path, params = list(), token = "", return_headers = FALSE) {
   query <- if (length(params)) {
     paste(
       vapply(names(params), function(name) paste0(utils::URLencode(name, reserved = TRUE), "=", utils::URLencode(as.character(params[[name]]), reserved = TRUE)), character(1L)),
@@ -345,7 +351,7 @@ github_api <- function(path, params = list(), token = "") {
     )
   } else ""
   url <- paste0("https://api.github.com", path, if (nzchar(query)) paste0("?", query) else "")
-  http_request(url, token = token, parse_json = TRUE)
+  http_request(url, token = token, parse_json = TRUE, return_headers = return_headers)
 }
 
 # Baixa o arquivo fixado por commit, evitando usar o estado atual do branch.

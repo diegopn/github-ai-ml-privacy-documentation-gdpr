@@ -1,76 +1,135 @@
-# Experimento de documentação de privacidade em R
+# Experimento de documentação de privacidade
 
-Este projeto reúne, em R, a coleta histórica, a classificação documental e a
-análise estatística de repositórios públicos de IA/ML. A unidade de análise é
-o mesmo repositório observado nos dois snapshots:
+Este repositório reúne a seleção da amostra, a coleta histórica, a
+classificação documental, a análise estatística e a publicação dos resultados
+em um site Quarto. A unidade de análise é o mesmo repositório público de IA/ML
+observado em dois snapshots:
 
 - pré-GDPR: último commit até `2018-05-24T23:59:59Z`;
 - pós-GDPR: último commit até `2026-06-30T23:59:59Z`.
 
-A amostra exige identificador SPDX e aprovação OSI da licença. O coletor usa a
-API do GitHub, fixa cada versão pelo SHA do commit, recupera a árvore Git e
-preserva os documentos textuais candidatos em um checkpoint JSONL. A análise
-reaplica as regras finais sobre esse checkpoint, gera o dataset, registra as
-evidências e calcula os testes pareados.
+O site público do projeto é gerado a partir dos arquivos versionados e pode ser
+publicado no GitHub Pages pelo workflow incluído no repositório.
+
+## Estrutura
+
+```text
+R/select_sample.R       seleção por tópicos e critérios do protocolo
+R/collect.R             coleta histórica e retomada por checkpoint
+R/analyze.R             classificação final, dataset e estatísticas
+R/common.R              regras e funções compartilhadas
+R/run_pipeline.R        execução linear das etapas
+_targets.R              pipeline declarativo opcional
+index.qmd               página inicial do site
+resultados.qmd          tabelas, gráficos e testes
+dados.qmd               registros coletados e evidências
+metodologia.qmd         desenho e critérios da pesquisa
+reproducao.qmd          instruções de reprodução
+data/                   amostra, tópicos e lista SPDX/OSI
+outputs/                resultados e relatórios derivados
+```
 
 ## Requisitos
 
 - R 4.5 ou superior;
-- pacote `jsonlite`.
-- programa `curl` disponível no sistema para as requisições da API.
+- `jsonlite` para coleta e análise;
+- `knitr`, `rmarkdown` e Quarto para renderizar o site;
+- `targets` para usar o pipeline declarativo;
+- `curl` para novas chamadas à API do GitHub.
 
-Instalação:
+No R:
 
 ```r
-install.packages("jsonlite")
+install.packages(c("jsonlite", "knitr", "rmarkdown", "targets"))
 ```
 
-O token da API deve ficar na variável de ambiente `GITHUB_TOKEN`. Também é
-possível usar um arquivo `.env` local com a linha `GITHUB_TOKEN=...`; esse
-arquivo é ignorado pelo Git.
+O token da API deve ficar em `GITHUB_TOKEN` ou em um arquivo `.env` local:
 
-## Estrutura
+```text
+GITHUB_TOKEN=seu_token
+```
 
-- `data/repositorios_selecionados.csv`: amostra fechada de repositórios;
-- `data/raw/repository_results.jsonl`: checkpoint bruto da coleta;
-- `R/collect.R`: coleta histórica e retomada por checkpoint;
-- `R/analyze.R`: classificação final, dataset e estatísticas;
-- `R/run_pipeline.R`: executa coleta e análise em sequência;
-- `outputs/`: artefatos derivados da execução.
+O arquivo `.env` é ignorado pelo Git.
 
 ## Execução
 
-Para repetir apenas a análise usando um checkpoint já existente:
+Para repetir a análise usando a amostra e o checkpoint versionados:
 
 ```bash
 Rscript R/analysis.R
 ```
 
-Para coletar ou atualizar os dados:
-
-```bash
-export GITHUB_TOKEN="seu-token"
-Rscript R/collect.R --workers 1
-```
-
-Para executar as duas etapas:
+Para executar coleta pendente e análise:
 
 ```bash
 Rscript R/run_pipeline.R --workers 1
 ```
 
-O coletor reutiliza registros cujo hash da amostra e protocolo coincidem. A
-análise não acessa a API e pode ser reproduzida apenas com o CSV e o checkpoint.
+Para gerar uma nova amostra pela API e depois executar o pipeline:
 
-## Classificação e estatística
+```bash
+export GITHUB_TOKEN="seu-token"
+Rscript R/run_pipeline.R --select --workers 1
+```
+
+O seletor também pode ser executado isoladamente:
+
+```bash
+Rscript R/select_sample.R --output data/repositorios_selecionados.csv
+```
+
+O arquivo `data/repositorios_selecionados.csv` permanece versionado para
+congelar a entrada usada nos resultados publicados.
+
+## Pipeline declarativo
+
+Com o pacote `targets`, consulte o grafo e execute as etapas necessárias:
+
+```r
+targets::tar_visnetwork()
+targets::tar_make()
+```
+
+O pipeline atualiza os artefatos de análise a partir do CSV e do checkpoint.
+A seleção e novas chamadas à API continuam sendo uma decisão explícita por
+meio de `R/select_sample.R` ou da opção `--select`.
+
+## Site
+
+Para visualizar localmente:
+
+```bash
+quarto preview
+```
+
+Para gerar os arquivos estáticos:
+
+```bash
+quarto render
+```
+
+O workflow `.github/workflows/quarto-publish.yml` renderiza e publica o site no
+GitHub Pages após atualizações na branch principal.
+
+O site apresenta os resultados, a amostra, os documentos recuperados, as
+evidências positivas, os arquivos de saída e as instruções de reprodução.
+
+## Resultados e rastreabilidade
+
+O projeto preserva:
+
+- o CSV da amostra e seu hash;
+- o checkpoint bruto JSONL;
+- o dataset final;
+- as evidências positivas com SHA, arquivo e trecho textual;
+- estatísticas, tabelas, gráficos e relatórios;
+- o manifesto com versões, hashes e método estatístico.
 
 D1 indica evidência documental contextualizada. O PDE Score soma C1 a C7:
 dados pessoais, finalidade, base legal, direitos, retenção ou exclusão,
-compartilhamento e proteção. Menções isoladas, bibliografia, badges, datasets,
-testes, fixtures e exemplos não são consideradas evidência suficiente.
+compartilhamento e proteção. O resultado mede documentação versionada e não
+constitui auditoria jurídica.
 
-O projeto calcula McNemar exato bicaudal para D1 e Wilcoxon pareado exato
-bicaudal para o score. Diferenças zero são excluídas dos postos; empates nos
-valores absolutos recebem postos médios. Também são gerados proporções,
-medianas, IQR, intervalo bootstrap, tamanho de efeito, tabelas, gráficos,
-evidências positivas e informações da sessão R.
+## Licença
+
+Este projeto é distribuído sob a [Licença MIT](LICENSE).

@@ -1,0 +1,73 @@
+---
+title: "Experimento de documentação de privacidade"
+subtitle: "Projetos open source de IA/ML observados antes e depois do início da aplicação da GDPR"
+---
+
+```{r}
+# Carrega os resultados já gerados pelo pipeline reprodutível.
+stats <- jsonlite::read_json("outputs/estatisticas.json", simplifyVector = FALSE)
+dataset <- read.csv("outputs/dataset_final_privacidade_gdpr.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+total <- as.integer(stats$total_input_rows)
+complete <- as.integer(stats$complete_pairs)
+pre_d1 <- as.integer(stats$rq1_mcnemar$pre_ones)
+post_d1 <- as.integer(stats$rq1_mcnemar$post_ones)
+pre_score <- as.numeric(stats$rq2_wilcoxon$pre_mean)
+post_score <- as.numeric(stats$rq2_wilcoxon$post_mean)
+p_mcnemar <- as.numeric(stats$rq1_mcnemar$exact_mcnemar_p_two_sided)
+p_wilcoxon <- as.numeric(stats$rq2_wilcoxon$wilcoxon_signed_rank_exact$p_two_sided_exact)
+```
+
+::: {.hero-note}
+Este site apresenta a amostra, os documentos recuperados, as evidências
+textuais e os resultados estatísticos do experimento. Os valores exibidos são
+gerados diretamente dos artefatos versionados no repositório.
+:::
+
+## Visão geral
+
+::: {.metric-grid}
+::: {.metric-card}
+### `r total`
+Repositórios na amostra
+:::
+
+::: {.metric-card}
+### `r complete`
+Pares históricos completos
+:::
+
+::: {.metric-card}
+### `r post_d1`
+D1 no período pós-GDPR
+:::
+
+::: {.metric-card}
+### `r sprintf("%.3f", post_score)`
+PDE Score médio pós-GDPR
+:::
+:::
+
+## Resultado principal
+
+No período pré-GDPR, `r pre_d1` de `r complete` repositórios apresentaram
+evidência documental de privacidade (D1=1). No período pós-GDPR, foram
+`r post_d1` repositórios. O teste exato de McNemar bicaudal resultou em
+`r format(p_mcnemar, scientific = TRUE, digits = 6)`.
+
+O PDE Score médio passou de `r sprintf("%.3f", pre_score)` para
+`r sprintf("%.3f", post_score)`. O teste exato de Wilcoxon pareado resultou em
+`r format(p_wilcoxon, scientific = TRUE, digits = 6)`.
+
+## Navegação
+
+- [Resultados detalhados](resultados.qmd): tabelas, gráficos e testes.
+- [Dados coletados](dados.qmd): amostra, documentos e evidências.
+- [Metodologia](metodologia.qmd): critérios e desenho da pesquisa.
+- [Reprodução](reproducao.qmd): execução do pipeline e dos relatórios.
+
+## Arquivos principais
+
+- [Dataset final](outputs/dataset_final_privacidade_gdpr.csv)
+- [Evidências positivas](outputs/evidencias_positivas.csv)
+- [Estatísticas em JSON](outputs/estatisticas.json)
+- [Checkpoint bruto da coleta](data/raw/repository_results.jsonl)
