@@ -10,7 +10,15 @@ sample <- read.csv("inputs/final/selected_repositories.csv", stringsAsFactors = 
 dataset <- read.csv("outputs/tables/final_privacy_gdpr_dataset.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
 evidence <- read.csv("outputs/tables/positive_evidence.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
 
-fmt_p <- function(value) format(as.numeric(value), scientific = TRUE, digits = 6)
+fmt_p <- function(value) {
+  formatC(
+    as.numeric(value),
+    format = "f",
+    digits = 6L,
+    decimal.mark = ",",
+    big.mark = "."
+  )
+}
 r1 <- stats$rq1_mcnemar
 r2 <- stats$rq2_wilcoxon
 w <- r2$wilcoxon_signed_rank_exact

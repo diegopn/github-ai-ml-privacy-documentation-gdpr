@@ -5,6 +5,9 @@ project:
   render:
     - index.qmd
 
+execute:
+  echo: false
+
 website:
   title: "Documentação de privacidade em projetos de IA/ML"
   site-url: https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/
@@ -35,8 +38,6 @@ format:
     theme: cosmo
     css: site/styles.css
     toc: true
-    code-fold: true
-    code-tools: true
     page-layout: full
     smooth-scroll: true
     embed-resources: true
