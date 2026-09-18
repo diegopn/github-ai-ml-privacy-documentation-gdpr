@@ -31,6 +31,8 @@ website:
       - href: index.qmd#reproducao
         text: Reprodução
     right:
+      - text: Portfólio
+        href: https://diegopn.github.io/
       - icon: github
         href: https://github.com/diegopn/github-ai-ml-privacy-documentation-gdpr
         aria-label: GitHub
