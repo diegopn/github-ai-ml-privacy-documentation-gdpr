@@ -1,15 +1,18 @@
-/* Identidade visual inspirada no site principal: papel, azul-marinho e ferrugem. */
+/* Tokens e ritmo editorial compartilhados com o site principal. */
 @import url("https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Montserrat:wght@400;500;600;700&display=swap");
 
 :root {
   --white: #ffffff;
-  --paper: #f6f3ed;
-  --ink: #101d2e;
-  --muted: #5f6873;
-  --navy: #0d2746;
-  --rust: #c55334;
-  --line: #d9d9d4;
-  --max: 1288px;
+  --paper: #f3f6f8;
+  --hero-surface: #f8f9f9;
+  --ink: #111111;
+  --muted: #66727a;
+  --navy: #111111;
+  --rust: #111111;
+  --accent-soft: #d5e1e7;
+  --line: #e1e6e9;
+  --max: 1180px;
+  --gutter: clamp(16px, 4vw, 40px);
   --sans: "Montserrat", Arial, sans-serif;
   --serif: "Amiri", Georgia, serif;
   --bs-body-font-family: var(--sans);
@@ -32,7 +35,7 @@ body {
   color: var(--ink);
   background: var(--white);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
 }
 
@@ -41,13 +44,13 @@ body.nav-fixed {
 }
 
 a {
-  color: var(--rust);
+  color: var(--ink);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
 a:hover {
-  color: var(--navy);
+  color: var(--muted);
 }
 
 /* Mantém o cabeçalho visível durante a rolagem, inclusive quando o Quarto
@@ -82,7 +85,7 @@ a:hover {
   width: 100%;
   max-width: var(--max);
   margin: 0 auto;
-  padding: 0 40px;
+  padding: 0 var(--gutter);
 }
 
 #quarto-header .navbar-brand-container {
@@ -93,11 +96,24 @@ a:hover {
 #quarto-header .navbar-brand,
 #quarto-header .navbar-title {
   color: var(--ink) !important;
-  font-family: var(--serif);
-  font-size: 21px;
-  font-weight: 700;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
+}
+
+#quarto-header .navbar-brand::after {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  content: "Engenharia de software · pesquisa";
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 #quarto-header .navbar-collapse {
@@ -125,7 +141,7 @@ a:hover {
   bottom: 4px;
   left: 0;
   height: 2px;
-  background: var(--rust);
+  background: var(--accent-soft);
   content: "";
   transform: scaleX(0);
   transform-origin: left;
@@ -148,9 +164,15 @@ a:hover {
   border-radius: 0;
 }
 
+/* O tema de navegação do Quarto gera o ícone claro por padrão; o cabeçalho
+   desta identidade é branco e, portanto, precisa de um controle escuro. */
+#quarto-header .navbar-toggler-icon {
+  filter: invert(1);
+}
+
 /* Conteúdo com largura e ritmo próximos ao site de referência. */
 #quarto-content {
-  width: min(var(--max), calc(100% - 80px));
+  width: min(var(--max), calc(100% - (var(--gutter) * 2)));
   margin: 0 auto;
 }
 
@@ -162,8 +184,22 @@ main.content.column-page-left {
 
 #title-block-header {
   margin: 0;
-  padding: 72px 0 48px;
+  padding: clamp(84px, 11vw, 148px) 0 clamp(52px, 7vw, 88px);
   border-bottom: 1px solid var(--line);
+  background: var(--hero-surface);
+}
+
+#title-block-header::before {
+  display: block;
+  margin-bottom: 20px;
+  padding-left: 48px;
+  color: var(--ink);
+  content: "PESQUISA · PRIVACIDADE · IA/ML";
+  background: linear-gradient(var(--ink), var(--ink)) 0 50% / 38px 2px no-repeat;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
 }
 
 #title-block-header .title {
@@ -184,6 +220,12 @@ main.content.column-page-left {
   font-family: var(--serif);
   font-size: clamp(1.25rem, 2.3vw, 1.75rem);
   line-height: 1.25;
+}
+
+#title-block-header .description {
+  max-width: 72ch;
+  margin-top: 24px;
+  color: var(--muted);
 }
 
 main.content h2 {
@@ -234,7 +276,7 @@ main.content li {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 28px 0 12px;
-  border-top: 2px solid var(--rust);
+  border-top: 2px solid var(--ink);
   border-bottom: 1px solid var(--line);
 }
 
@@ -254,7 +296,7 @@ main.content li {
 
 .metric-card h3 {
   margin: 0;
-  color: var(--rust);
+  color: var(--ink);
   font-family: var(--serif);
   font-size: clamp(2rem, 3.6vw, 3.2rem);
   font-weight: 400;
@@ -274,8 +316,9 @@ main.content li {
 
 .hero-note,
 .pvalue-note {
-  margin: 30px 0 34px;
-  padding: 18px 22px;
+  max-width: 960px;
+  margin: 38px 0 48px;
+  padding: 22px 24px;
   border-left: 2px solid var(--rust);
   background: var(--paper);
 }
@@ -304,7 +347,7 @@ table {
 
 table caption {
   padding: 0 0 10px;
-  color: var(--rust);
+  color: var(--ink);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.09em;
@@ -341,7 +384,7 @@ tbody td:first-child {
 /* As tabelas longas ficam fechadas por padrão para preservar a leitura da página. */
 .data-details {
   margin: 22px 0 34px;
-  border-top: 1px solid var(--rust);
+  border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--line);
 }
 
@@ -350,7 +393,7 @@ tbody td:first-child {
   align-items: center;
   justify-content: space-between;
   padding: 15px 0 14px;
-  color: var(--rust);
+  color: var(--ink);
   cursor: pointer;
   font-size: 0.7rem;
   font-weight: 700;
@@ -364,7 +407,7 @@ tbody td:first-child {
 }
 
 .data-details summary::after {
-  color: var(--rust);
+  color: var(--ink);
   content: "+";
   font-family: var(--serif);
   font-size: 1.4rem;
@@ -409,7 +452,7 @@ pre code {
 }
 
 #TOC #toc-title {
-  color: var(--rust);
+  color: var(--ink);
   font-size: 0.67rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -423,7 +466,7 @@ pre code {
 
 #TOC a:hover,
 #TOC a.active {
-  color: var(--rust);
+  color: var(--ink);
 }
 
 .btn,
@@ -438,7 +481,7 @@ pre code {
 }
 
 .nav-footer {
-  width: min(var(--max), calc(100% - 80px));
+  width: min(var(--max), calc(100% - (var(--gutter) * 2)));
   margin: 0 auto;
   border-top: 0;
   color: var(--muted);
@@ -498,6 +541,10 @@ pre code {
     font-size: 18px;
   }
 
+  #quarto-header .navbar-brand::after {
+    display: none;
+  }
+
   #quarto-header .navbar-collapse {
     margin: 10px 0 0;
   }
@@ -511,7 +558,7 @@ pre code {
   }
 
   #title-block-header {
-    padding: 52px 0 36px;
+    padding: 72px 0 44px;
   }
 
   #title-block-header .title {
