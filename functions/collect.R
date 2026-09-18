@@ -1,6 +1,5 @@
 ## Coleta histórica de documentação versionada no GitHub.
-## O script consulta cada repositório nos dois limites temporais e guarda as
-## respostas em JSONL, para que a análise posterior possa ser reproduzida offline.
+## Os registros ficam em JSONL para permitir retomada e análise offline.
 
 script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
 script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("functions", "collect.R")
@@ -13,8 +12,7 @@ common_path <- common_candidates[file.exists(common_candidates)][[1L]]
 if (is.na(common_path) || !nzchar(common_path)) stop("functions/common.R não encontrado.")
 source(common_path)
 
-# Lê argumentos de linha de comando; os valores padrão apontam para a amostra
-# fechada e para o diretório de checkpoint do projeto.
+# Lê os caminhos e o número de trabalhadores.
 parse_options <- function(args) {
   values <- list(
     input = sample_path(),
@@ -36,8 +34,7 @@ parse_options <- function(args) {
   values
 }
 
-# Mantém apenas os metadados necessários para auditoria, evitando copiar toda
-# a resposta da API para cada registro do checkpoint.
+# Mantém no checkpoint apenas os metadados usados pela análise.
 compact_metadata <- function(body) {
   if (!is.list(body)) return(list())
   metadata <- list()
@@ -50,8 +47,7 @@ compact_metadata <- function(body) {
   metadata
 }
 
-# Extrai da resposta aninhada da API os campos estáveis de um commit, incluindo
-# SHA, datas, árvore Git, URL e a primeira linha da mensagem.
+# Extrai os campos estáveis de um commit.
 commit_info <- function(payload) {
   commit <- payload$commit %||% list()
   author <- commit$author %||% list()
@@ -70,8 +66,7 @@ commit_info <- function(payload) {
   )
 }
 
-# Recupera o último commit dentro do limite temporal, sua árvore e os documentos
-# candidatos; também registra uma classificação preliminar para inspeção.
+# Recupera o commit, a árvore e os documentos de um snapshot.
 collect_version <- function(repository, until, accessible, token) {
   version <- list(until = until)
   if (!accessible) {
@@ -112,8 +107,7 @@ collect_version <- function(repository, until, accessible, token) {
   version
 }
 
-# Monta um registro com metadados atuais e os dois snapshots históricos do mesmo
-# repositório, preservando a natureza pareada do experimento.
+# Monta o registro pareado de um repositório.
 collect_one <- function(row, source_hash, token) {
   repository <- scalar_text(row$repository, "")
   result <- list(
@@ -135,15 +129,13 @@ collect_one <- function(row, source_hash, token) {
   result
 }
 
-# Confirma se um registro pode ser reutilizado: ele precisa vir da mesma amostra
-# e ter sido produzido pela versão atual do protocolo de coleta.
+# Confirma se um registro pode ser reutilizado.
 is_reusable <- function(record, source_hash) {
   !is.null(record) && identical(scalar_text(record$source_sha256, ""), source_hash) &&
     identical(scalar_text(record$collector_protocol_version, ""), COLLECTOR_PROTOCOL_VERSION)
 }
 
-# Valida a entrada, carrega o checkpoint e consulta somente os repositórios
-# pendentes, gravando cada linha ao terminar para permitir retomada segura.
+# Consulta apenas os repositórios pendentes e grava cada linha ao terminar.
 run_collection <- function(options) {
   input_path <- resolve_project_path(options$input %||% sample_path())
   output_dir <- resolve_project_path(options$output %||% dirname(raw_checkpoint_path()))
@@ -157,13 +149,11 @@ run_collection <- function(options) {
   pending <- repositories[!vapply(repositories, function(repository) is_reusable(cached[[repository]], source_hash), logical(1L))]
   cat(sprintf("Amostra open source=%d; checkpoint=%d; pendentes=%d; pré=%s; pós=%s; trabalhadores=%d\n", nrow(sample), length(cached), length(pending), PRE_UNTIL, POST_UNTIL, options$workers))
   if (length(pending)) {
-    # O token só é exigido quando há chamadas novas; a análise de um checkpoint
-    # completo pode ser executada sem credenciais ou acesso à API.
+    # Um checkpoint completo não precisa de credenciais.
     token <- Sys.getenv("GITHUB_TOKEN", unset = "")
     if (!nzchar(token)) token <- read_dotenv_token()
     if (!nzchar(token)) stop("GITHUB_TOKEN não encontrado no ambiente ou em .env.")
-    # A escrita sequencial torna a ordem do checkpoint determinística e simples
-    # de retomar, mesmo quando a opção de trabalhadores foi informada.
+    # A escrita sequencial mantém a retomada determinística.
     for (index in seq_along(pending)) {
       repository <- pending[[index]]
       row <- sample[match(repository, sample$repository), , drop = FALSE]

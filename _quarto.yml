@@ -9,8 +9,7 @@ execute:
   echo: false
 
 website:
-  # A marca curta mantém o cabeçalho da publicação consistente com o site
-  # principal; o título completo continua visível no bloco editorial da página.
+  # A marca curta fica no cabeçalho; o título completo aparece no bloco editorial.
   title: "Diego Pereira"
   site-url: https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/
   favicon: site/favicon.png

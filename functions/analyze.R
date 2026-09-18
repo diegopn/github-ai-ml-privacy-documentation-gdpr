@@ -1,6 +1,4 @@
-## Achatamento, classificação final e análise estatística.
-## Esta etapa não consulta a API: lê o CSV e o checkpoint JSONL, recalcula as
-## regras sobre os documentos recuperados e produz os artefatos analisáveis.
+## Classificação final e análise estatística offline.
 
 script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
 script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("functions", "analyze.R")
@@ -13,8 +11,7 @@ common_path <- common_candidates[file.exists(common_candidates)][[1L]]
 if (is.na(common_path) || !nzchar(common_path)) stop("functions/common.R não encontrado.")
 source(common_path)
 
-# Interpreta os argumentos do analisador e define os caminhos do CSV, do
-# checkpoint JSONL e da pasta que receberá os artefatos derivados.
+# Lê os caminhos de entrada e saída do analisador.
 parse_options <- function(args) {
   values <- list(
     input = sample_path(),
@@ -34,8 +31,7 @@ parse_options <- function(args) {
   values
 }
 
-# Cria um registro mínimo para uma linha sem checkpoint, mantendo o repositório
-# visível no dataset e sinalizando que ele não foi processado.
+# Mantém no dataset as linhas que não têm registro no checkpoint.
 missing_record <- function(row) {
   list(
     repository = scalar_text(row$repository, ""), input_row = as.list(row),
@@ -44,8 +40,7 @@ missing_record <- function(row) {
   )
 }
 
-# Indexa o JSONL, restaura a ordem da amostra e achata cada objeto aninhado
-# para produzir exatamente uma linha por repositório.
+# Indexa o checkpoint e devolve uma linha por repositório, na ordem da amostra.
 records_to_dataset <- function(sample, records, source_hash) {
   by_repository <- index_records(records)
   rows <- lapply(seq_len(nrow(sample)), function(index) {
@@ -54,41 +49,40 @@ records_to_dataset <- function(sample, records, source_hash) {
     record <- by_repository[[repository]] %||% missing_record(row)
     flatten_record(row, record, index + 1L, source_hash)
   })
-  values <- lapply(dataset_columns(), function(column) {
+  columns <- dataset_columns()
+  values <- lapply(columns, function(column) {
     vapply(rows, function(row) {
       value <- row[[column]]
       if (is.null(value) || length(value) == 0L) "" else as.character(value[[1L]])
     }, character(1L))
   })
-  names(values) <- dataset_columns()
+  names(values) <- columns
   list(rows = rows, data = as.data.frame(values, stringsAsFactors = FALSE, check.names = FALSE))
 }
 
-# Seleciona apenas pares completos para os testes, mas registra no resumo as
-# contagens e os repositórios incompletos para que nada desapareça silenciosamente.
+# Calcula as estatísticas apenas para pares completos e preserva os incompletos no resumo.
 calculate_statistics <- function(records, dataset, sample, input_path = sample_path()) {
   complete <- vapply(records, is_complete_record, logical(1L))
   indices <- which(complete)
-  # Converte uma coluna do dataset, gravada como texto no CSV, para o vetor
-  # numérico correspondente aos repositórios incluídos na análise.
   numeric_column <- function(name) suppressWarnings(as.numeric(dataset[[name]][indices]))
   pre_d1 <- numeric_column("pre_D1")
   post_d1 <- numeric_column("post_D1")
   pre_score <- numeric_column("pre_score")
   post_score <- numeric_column("post_score")
   differences <- post_score - pre_score
-  # b e c são as duas transições discordantes exigidas pelo McNemar pareado.
   b <- sum(pre_d1 == 1 & post_d1 == 0, na.rm = TRUE)
   c_value <- sum(pre_d1 == 0 & post_d1 == 1, na.rm = TRUE)
-  # O Wilcoxon usa a diferença de score pós menos pré para cada par.
   wilcoxon <- wilcoxon_exact(differences)
   generated_at <- format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
-  pre_frequency <- setNames(integer(length(RULES)), names(RULES))
-  post_frequency <- pre_frequency
-  for (code in names(RULES)) {
-    pre_frequency[[code]] <- sum(suppressWarnings(as.numeric(dataset[[paste0("pre_", code)]][indices])) == 1, na.rm = TRUE)
-    post_frequency[[code]] <- sum(suppressWarnings(as.numeric(dataset[[paste0("post_", code)]][indices])) == 1, na.rm = TRUE)
+  frequency_for <- function(period) {
+    values <- vapply(names(RULES), function(code) {
+      column <- suppressWarnings(as.numeric(dataset[[paste0(period, "_", code)]][indices]))
+      sum(column == 1, na.rm = TRUE)
+    }, integer(1L))
+    setNames(values, names(RULES))
   }
+  pre_frequency <- frequency_for("pre")
+  post_frequency <- frequency_for("post")
   list(
     analysis_population = "pares com as duas versões históricas e árvores Git recuperadas",
     total_input_rows = nrow(sample), complete_pairs = length(indices), incomplete_pairs = nrow(sample) - length(indices),
@@ -130,20 +124,16 @@ calculate_statistics <- function(records, dataset, sample, input_path = sample_p
   )
 }
 
-# Formata números com número de casas controlado para manter tabelas, relatório
-# e mensagens do console consistentes entre si.
+# Formata números usados nos relatórios e mensagens do console.
 fmt_num <- function(value, digits = 3L) {
   if (is.null(value) || length(value) == 0L || is.na(value)) return("NA")
   formatC(as.numeric(value), format = "f", digits = digits, decimal.mark = ".")
 }
 
-# Converte uma proporção em percentual formatado usando a mesma convenção de fmt_num().
+# Formata uma proporção como percentual.
 fmt_pct <- function(value) paste0(fmt_num(as.numeric(value) * 100, 1L), "%")
 
-# Grava um relatório Markdown compacto com população, contagens, testes e
-# informações necessárias para interpretar os resultados estatísticos.
-# Grava um relatório Markdown compacto com população, contagens, testes e
-# informações necessárias para interpretar os resultados estatísticos.
+# Grava o resumo estatístico em Markdown.
 write_stats_markdown <- function(path, stats) {
   r1 <- stats$rq1_mcnemar
   r2 <- stats$rq2_wilcoxon
@@ -182,8 +172,7 @@ write_stats_markdown <- function(path, stats) {
   writeLines(enc2utf8(lines), path, useBytes = TRUE)
 }
 
-# Gera um relatório descritivo do desenho, população, limitações, resultados
-# e caminhos de reprodução em linguagem adequada para leitura no repositório.
+# Gera o relatório descritivo da execução.
 write_report <- function(path, stats, sample, source_hash, dataset, input_path = sample_path(), raw_path = raw_checkpoint_path()) {
   r1 <- stats$rq1_mcnemar
   r2 <- stats$rq2_wilcoxon
@@ -216,8 +205,7 @@ write_report <- function(path, stats, sample, source_hash, dataset, input_path =
   writeLines(enc2utf8(lines), path, useBytes = TRUE)
 }
 
-# Registra hashes, versões, parâmetros e artefatos para identificar e reconstruir
-# a execução que produziu os arquivos publicados.
+# Registra parâmetros, versões e artefatos da execução.
 write_manifest <- function(path, stats, input_path = sample_path(), raw_path = raw_checkpoint_path()) {
   manifest <- list(
     generated_at = stats$generated_at,
@@ -255,8 +243,7 @@ write_manifest <- function(path, stats, input_path = sample_path(), raw_path = r
   jsonlite::write_json(manifest, path, auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
 }
 
-# Extrai cada indicador positivo do dataset e grava seu trecho textual em uma
-# tabela separada, facilitando a auditoria e a revisão manual.
+# Grava os trechos associados aos indicadores positivos.
 write_positive_evidence <- function(path, dataset) {
   values <- list()
   for (index in seq_len(nrow(dataset))) {
@@ -277,8 +264,7 @@ write_positive_evidence <- function(path, dataset) {
   write.csv(result, path, row.names = FALSE, fileEncoding = "UTF-8")
 }
 
-# Gera tabelas auxiliares, RDS e gráficos a partir dos resultados já calculados,
-# sem consultar novamente a API do GitHub.
+# Grava tabelas, gráficos e metadados derivados da análise.
 write_derived_outputs <- function(paths, stats, dataset) {
   complete <- dataset$pre_D1 != "" & dataset$post_D1 != ""
   transition <- table(
@@ -317,8 +303,7 @@ write_derived_outputs <- function(paths, stats, dataset) {
 }
 
 run_analysis <- function(options) {
-  # Executa o pipeline offline: valida entradas, achata o checkpoint, calcula as
-  # estatísticas e grava tabelas, gráficos, relatórios e metadados de reprodução.
+  # O analisador é offline: usa apenas a amostra e o checkpoint disponíveis.
   input_path <- resolve_project_path(options$input %||% sample_path())
   raw_path <- resolve_project_path(options$raw %||% raw_checkpoint_path())
   paths <- output_paths(options$output %||% output_root_path())
@@ -339,8 +324,7 @@ run_analysis <- function(options) {
   )
   write.csv(dataset, file.path(paths$tables, "final_privacy_gdpr_dataset.csv"), row.names = FALSE, fileEncoding = "UTF-8", na = "")
   write_positive_evidence(file.path(paths$tables, "positive_evidence.csv"), dataset)
-  # O dataset é salvo antes das estatísticas para que uma falha posterior ainda
-  # deixe disponível a tabela principal da execução.
+  # O dataset é gravado antes dos demais artefatos.
   stats <- calculate_statistics(records, dataset, sample, input_path)
   write_derived_outputs(paths, stats, dataset)
   jsonlite::write_json(stats, file.path(paths$metadata, "statistics.json"), auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
