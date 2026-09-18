@@ -188,7 +188,7 @@ main.content.column-page-left {
 
 #title-block-header {
   margin: 0;
-  padding: clamp(84px, 11vw, 148px) 0 clamp(52px, 7vw, 88px);
+  padding: clamp(84px, 4vw, 148px) 0 clamp(52px, 7vw, 88px);
   border-bottom: 1px solid var(--line);
 }
 
@@ -561,7 +561,7 @@ pre code {
   }
 
   #title-block-header {
-    padding: 72px 0 44px;
+    padding: 48px 0 44px;
   }
 
   #title-block-header .title {
