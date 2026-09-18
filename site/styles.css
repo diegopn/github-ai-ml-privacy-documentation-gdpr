@@ -122,6 +122,7 @@ a:hover {
 
 #quarto-header .navbar-nav {
   gap: clamp(16px, 2.2vw, 34px);
+  margin-left: 32px !important;
 }
 
 #quarto-header .nav-link {
