@@ -9,11 +9,16 @@ execute:
   echo: false
 
 website:
-  title: "Documentação de privacidade em projetos de IA/ML"
+  # A marca curta mantém o cabeçalho da publicação consistente com o site
+  # principal; o título completo continua visível no bloco editorial da página.
+  title: "Diego Pereira"
   site-url: https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/
   favicon: site/favicon.png
+  search: false
   navbar:
-    background: primary
+    background: light
+    pinned: true
+    collapse: true
     left:
       - href: index.qmd
         text: Início
@@ -30,8 +35,8 @@ website:
         href: https://github.com/diegopn/github-ai-ml-privacy-documentation-gdpr
         aria-label: GitHub
   page-footer:
-    left: "Experimento de documentação de privacidade"
-    right: "Licença MIT"
+    left: "Diego Pereira do Nascimento · Pesquisa, tecnologia e liderança"
+    right: "Experimento de documentação de privacidade · Licença MIT"
 
 format:
   html:
