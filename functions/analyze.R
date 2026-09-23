@@ -310,10 +310,10 @@ write_derived_outputs <- function(paths, stats, dataset) {
   saveRDS(stats, file.path(paths$metadata, "statistics_r.rds"))
 
   png(file.path(paths$figures, "d1_pre_post.png"), width = 1000, height = 650, res = 120)
-  barplot(c(r1$pre_ones, r1$post_ones), names.arg = c("Pré-GDPR", "Pós-GDPR"), ylab = "Repositórios com D1 = 1", main = "Presença documental de privacidade", col = "grey35")
+  barplot(c(r1$pre_ones, r1$post_ones), names.arg = c("Pré-GDPR", "Pós-GDPR"), ylab = "Repositórios com D1 = 1", main = "Presença documental de privacidade", col = c("#f2a36b", "#c84b18"))
   dev.off()
   png(file.path(paths$figures, "criteria_post_gdpr.png"), width = 1000, height = 650, res = 120)
-  barplot(frequencies$post, names.arg = frequencies$criterion, ylab = "Repositórios", main = "Critérios documentais no período pós-GDPR", col = "grey45")
+  barplot(frequencies$post, names.arg = frequencies$criterion, ylab = "Repositórios", main = "Critérios documentais no período pós-GDPR", col = "#d85f2a")
   dev.off()
 }
 

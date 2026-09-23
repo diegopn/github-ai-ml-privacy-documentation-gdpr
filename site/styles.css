@@ -8,13 +8,18 @@
   --muted: #66727a;
   --navy: #111111;
   --rust: #111111;
-  --accent-soft: #d5e1e7;
+  --accent: #bd4618;
+  --accent-soft: #df9a75;
+  --accent-box: #fff1e8;
+  --accent-box-text: #4c2415;
+  --accent-stroke: #d16b40;
+  --accent-flow: #b94b1e;
   --line: #e1e6e9;
   --code-bg: #faf9f6;
   --table-head: #111111;
   --table-head-text: #ffffff;
-  --brand-line: #d4e2e9;
-  --language-active: #ff4b1f;
+  --brand-line: #ead6ca;
+  --language-active: var(--accent);
   --language-active-text: #ffffff;
   --brand-tagline: "Engenharia de software · pesquisa";
   --max: 1300px;
@@ -23,6 +28,8 @@
   --bs-body-font-family: var(--sans);
   --bs-body-color: var(--ink);
   --bs-body-bg: var(--white);
+  --bs-primary: var(--accent);
+  --bs-primary-rgb: 189, 70, 24;
   --bs-link-color: var(--rust);
   --bs-link-hover-color: var(--navy);
 }
@@ -35,15 +42,22 @@
   --muted: #aeb7ba;
   --navy: #f2f1ec;
   --rust: #f2f1ec;
-  --accent-soft: #5a7079;
+  --accent: #ff7548;
+  --accent-soft: #db885f;
+  --accent-box: #31221b;
+  --accent-box-text: #ffede4;
+  --accent-stroke: #d47b54;
+  --accent-flow: #cf714c;
   --line: #2d383d;
   --code-bg: #141b1f;
   --table-head: #171c1f;
   --table-head-text: #f2f1ec;
-  --brand-line: #42525a;
+  --brand-line: #594238;
   --brand-tagline: "Software engineering · research";
   --bs-body-color: var(--ink);
   --bs-body-bg: var(--white);
+  --bs-primary: var(--accent);
+  --bs-primary-rgb: 255, 117, 72;
   --bs-link-color: var(--rust);
   --bs-link-hover-color: var(--navy);
 }
@@ -57,15 +71,22 @@
     --muted: #aeb7ba;
     --navy: #f2f1ec;
     --rust: #f2f1ec;
-    --accent-soft: #5a7079;
+    --accent: #ff7548;
+    --accent-soft: #db885f;
+    --accent-box: #31221b;
+    --accent-box-text: #ffede4;
+    --accent-stroke: #d47b54;
+    --accent-flow: #cf714c;
     --line: #2d383d;
     --code-bg: #141b1f;
     --table-head: #171c1f;
     --table-head-text: #f2f1ec;
-    --brand-line: #42525a;
+    --brand-line: #594238;
     --brand-tagline: "Software engineering · research";
     --bs-body-color: var(--ink);
     --bs-body-bg: var(--white);
+    --bs-primary: var(--accent);
+    --bs-primary-rgb: 255, 117, 72;
     --bs-link-color: var(--rust);
     --bs-link-hover-color: var(--navy);
   }
@@ -648,6 +669,30 @@ pre.sourceCode code *,
 #TOC a.active {
   color: var(--language-active) !important;
   font-weight: 600;
+  border-left-color: var(--language-active) !important;
+}
+
+.mermaid .node rect,
+.mermaid .node polygon,
+.mermaid .node circle {
+  fill: var(--accent-box) !important;
+  stroke: var(--accent-stroke) !important;
+}
+
+.mermaid .node .label,
+.mermaid .nodeLabel {
+  color: var(--accent-box-text) !important;
+  fill: var(--accent-box-text) !important;
+}
+
+.mermaid .flowchart-link,
+.mermaid .edgePath path,
+.mermaid marker path {
+  stroke: var(--accent-flow) !important;
+}
+
+.mermaid marker path {
+  fill: var(--accent-flow) !important;
 }
 
 .btn,

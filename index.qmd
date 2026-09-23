@@ -127,7 +127,7 @@ barplot(
   c(as.numeric(r1$pre_ones), as.numeric(r1$post_ones)),
   names.arg = c("Pré-GDPR", "Pós-GDPR"),
   ylab = "Repositórios com D1 = 1",
-  col = c("#6c8ebf", "#1d4e89"),
+  col = c("#f2a36b", "#c84b18"),
   ylim = c(0, max(18, as.numeric(r1$post_ones) + 2)),
   main = "Evidência documental de privacidade"
 )
@@ -148,7 +148,7 @@ barplot(
   post_frequency,
   names.arg = codes,
   ylab = "Repositórios",
-  col = "#1d4e89",
+  col = "#d85f2a",
   main = "Critérios documentais no período pós-GDPR"
 )
 ```
