@@ -1,11 +1,10 @@
-# Experimento de documentação de privacidade — tópicos ampliados
+# Experimento de documentação de privacidade em repositórios de IA/ML
 
 Este projeto reúne, em R, a seleção da amostra, a coleta histórica, a
 classificação documental, a análise estatística e a publicação dos resultados
-em uma página Quarto. A descoberta
-passa a usar 24 tópicos de IA/ML, incluindo subdomínios de visão, NLP, LLMs,
-transformers, geração, difusão, multimodalidade, RAG e agentes. A unidade de
-análise continua sendo o mesmo repositório público observado em dois snapshots:
+em uma página Quarto. A busca utiliza 24 tópicos de IA/ML, incluindo visão,
+NLP, LLMs, transformers, geração, difusão, multimodalidade, RAG e agentes. A
+unidade de análise é o repositório público observado em dois snapshots:
 
 - pré-GDPR: último commit até `2018-05-24T23:59:59Z`;
 - pós-GDPR: último commit até `2026-06-30T23:59:59Z`.
@@ -43,7 +42,7 @@ tests/
 index.qmd                    entrada do GitHub Pages e página completa
 settings.yml                caminhos, datas, alfa e critérios configuráveis
 inputs/reference/ai_ml_topics_used.csv
-                            vocabulário e referências da expansão
+                            tópicos usados na busca
 LICENSE                      licença MIT na raiz do projeto
 ```
 
@@ -100,17 +99,18 @@ Se a seleção ou a coleta falhar, `--analyze` interrompe antes de produzir
 resultados com entradas incompletas ou desatualizadas. `--analyze` depende da
 execução bem-sucedida de `--select` ou `--run` para a amostra atual.
 
-O terminal identifica cada etapa e mostra sua duração. Na seleção, informa o
-tópico atual, páginas baixadas e total de repositórios únicos; na coleta,
-mostra quantos pares estão completos ou incompletos e uma estimativa do tempo
-restante. O estado também fica em `outputs/metadata/run_status.json`, incluindo
-a etapa atual e o PID da execução. Um lock impede duas execuções do mesmo
-projeto de sobrescreverem checkpoints ou resultados.
+O terminal identifica cada etapa. Na busca, informa o tópico e os resultados;
+na seleção e na coleta, mostra apenas a contagem de repositórios aprovados ou
+processados em relação ao total, com atualizações a cada 60 segundos e ao
+concluir. Não exibe estimativa de tempo restante. O estado também fica em
+`outputs/metadata/run_status.json`, incluindo a etapa atual e o PID da execução.
+Um lock impede duas execuções do mesmo projeto de sobrescreverem checkpoints
+ou resultados.
 
 A coleta é deliberadamente serial para manter a ordem, a reprodutibilidade e o
 limite da API do GitHub. O intervalo normal entre chamadas é aplicado sem
-mensagens repetidas; quando o GitHub impõe um limite, o terminal informa a
-próxima tentativa estimada e atualiza a espera em intervalos. O estado do
+mensagens repetidas; quando o GitHub impõe um limite, o terminal informa que
+está aguardando a renovação, sem estimar o horário de conclusão. O estado do
 limitador fica em `outputs/metadata/github_api_rate_state.json` (ignorado pelo
 Git). As chamadas registram os headers de limite sem armazenar o token e não
 repetem indefinidamente erros 403 que não sejam de rate limit. Quando o GitHub
@@ -150,13 +150,13 @@ O seletor de idioma carrega `site/locales/pt-BR.json` ou
 aplicação dos textos. Os JSON são usados diretamente pelo site estático, sem
 compilação gettext ou arquivos `.po`.
 
-## Escopo e regras preservadas
+## Escopo e critérios
 
-A expansão altera a primeira camada de descoberta. Ela não relaxa os critérios
-de elegibilidade: repositório público, não fork, não arquivado, criado antes de
-25/05/2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade de
-no mínimo 24 meses, atividade nos dois períodos históricos e licença SPDX/OSI
-aprovada.
+A busca usa os 24 tópicos configurados em `settings.yml`. Os critérios de
+elegibilidade são: repositório público, não fork, não arquivado, criado antes
+de 25/05/2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade
+de no mínimo 24 meses, atividade nos dois períodos históricos e licença
+SPDX/OSI aprovada.
 
 Cada consulta da Search API é particionada por data de criação quando necessário
 para respeitar o limite de 1.000 resultados. O manifesto
@@ -214,7 +214,7 @@ constitui auditoria jurídica.
 Este projeto é distribuído sob a [Licença MIT](LICENSE), mantida no arquivo
 `LICENSE` da raiz.
 
-## Referências da expansão
+## Referências metodológicas
 
 - Gonzalez, Zimmermann e Nagappan (2020), *The State of the ML-universe* —
   [DOI 10.1145/3379597.3387473](https://doi.org/10.1145/3379597.3387473).
@@ -225,5 +225,6 @@ Este projeto é distribuído sob a [Licença MIT](LICENSE), mantida no arquivo
 - De Martino et al. (2025), *Into the ML-Universe* —
   [DOI 10.1016/j.jss.2025.112471](https://doi.org/10.1016/j.jss.2025.112471).
 
-As referências complementares usadas no trabalho de expansão ficam registradas
-em [`inputs/reference/literature_expanded.md`](inputs/reference/literature_expanded.md).
+As referências bibliográficas que fundamentam a seleção dos tópicos e a
+discussão de validade estão no arquivo
+[`inputs/reference/literature_methods.md`](inputs/reference/literature_methods.md).

@@ -119,10 +119,10 @@ complete_selection_state <- function(state, result) {
 assert_current_selection_valid <- function(sample = sample_path()) {
   state <- read_selection_state()
   if (!is.list(state) || !identical(scalar_text(state$status, ""), "completed")) {
-    stop("Não há uma seleção ampliada concluída. Execute Rscript main.R --select para gerar uma nova amostra.", call. = FALSE)
+    stop("Não há uma seleção de amostra concluída. Execute Rscript main.R --select para gerar uma nova amostra.", call. = FALSE)
   }
   if (!identical(scalar_text(state$operation, ""), "expanded-search")) {
-    stop("A amostra atual não foi gerada pela seleção ampliada. Execute Rscript main.R para gerar uma nova amostra.", call. = FALSE)
+    stop("A amostra atual não foi gerada pelo protocolo de seleção vigente. Execute Rscript main.R para gerar uma nova amostra.", call. = FALSE)
   }
   if (!identical(scalar_text(state$protocol_version, ""), SELECTION_PROTOCOL_VERSION) ||
       !identical(scalar_text(state$configuration_fingerprint, ""), selection_configuration_fingerprint())) {
@@ -130,18 +130,18 @@ assert_current_selection_valid <- function(sample = sample_path()) {
   }
   expected_path <- project_relative(sample)
   if (!identical(scalar_text(state$sample_path, ""), expected_path) || !file.exists(sample)) {
-    stop("A amostra associada à seleção ampliada não está disponível no caminho esperado. Execute Rscript main.R.", call. = FALSE)
+    stop("A amostra associada à seleção não está disponível no caminho esperado. Execute Rscript main.R.", call. = FALSE)
   }
   current_hash <- sha256_file(sample)
   if (!identical(current_hash, scalar_text(state$sample_sha256, ""))) {
-    stop("A amostra foi alterada desde a seleção ampliada. Execute Rscript main.R para gerar uma nova amostra.", call. = FALSE)
+    stop("A amostra foi alterada desde a seleção. Execute Rscript main.R para gerar uma nova amostra.", call. = FALSE)
   }
   audit_path <- selection_audit_path()
   audit <- read_selection_state(audit_path)
   if (!is.list(audit) ||
       !identical(scalar_text(audit$selection_run_id, ""), scalar_text(state$run_id, "")) ||
       !identical(scalar_text(audit$sample_sha256, ""), current_hash)) {
-    stop("O manifesto não corresponde à seleção ampliada atual. Execute Rscript main.R para gerar uma nova amostra.", call. = FALSE)
+    stop("O manifesto não corresponde à seleção atual. Execute Rscript main.R para gerar uma nova amostra.", call. = FALSE)
   }
   invisible(state)
 }
@@ -297,37 +297,36 @@ partition_topic_query <- function(topic, start_date = SELECTION_CREATED_START,
   )
 }
 
-search_by_topic <- function(topic, token) {
-  partitions <- partition_topic_query(topic, token = token)
+download_search_partition <- function(partition, token) {
+  total <- scalar_int(partition$total_count, 0L)
+  pages <- if (total == 0L) 0L else ceiling(total / SELECTION_SEARCH_PAGE_SIZE)
   repositories <- list()
-  partition_audit <- list()
-  for (partition_index in seq_along(partitions)) {
-    partition <- partitions[[partition_index]]
-    total <- scalar_int(partition$total_count, 0L)
-    pages <- if (total == 0L) 0L else ceiling(total / SELECTION_SEARCH_PAGE_SIZE)
-    downloaded <- 0L
-    for (page in seq_len(pages)) {
-      response <- selection_api(
-        "/search/repositories",
-        list(q = partition$query, sort = "stars", order = "desc", per_page = SELECTION_SEARCH_PAGE_SIZE, page = page),
-        token
-      )
-      body <- response$body %||% list()
-      if (scalar_bool(body$incomplete_results, FALSE)) {
-        stop(sprintf("A Search API devolveu resultados incompletos para: %s", partition$query))
-      }
-      items <- body$items %||% list()
-      if (!is.list(items)) items <- list()
-      if (page < pages && length(items) < SELECTION_SEARCH_PAGE_SIZE) {
-        stop(sprintf("A consulta mudou durante a paginação e ficou incompleta: %s", partition$query))
-      }
-      repositories <- c(repositories, items)
-      downloaded <- downloaded + length(items)
+  downloaded <- 0L
+  for (page in seq_len(pages)) {
+    response <- selection_api(
+      "/search/repositories",
+      list(q = partition$query, sort = "stars", order = "desc", per_page = SELECTION_SEARCH_PAGE_SIZE, page = page),
+      token
+    )
+    body <- response$body %||% list()
+    if (scalar_bool(body$incomplete_results, FALSE)) {
+      stop(sprintf("A Search API devolveu resultados incompletos para: %s", partition$query))
     }
-    if (downloaded != total) {
-      stop(sprintf("A consulta retornou %d de %d resultados esperados: %s", downloaded, total, partition$query), call. = FALSE)
+    items <- body$items %||% list()
+    if (!is.list(items)) items <- list()
+    if (page < pages && length(items) < SELECTION_SEARCH_PAGE_SIZE) {
+      stop(sprintf("A consulta mudou durante a paginação e ficou incompleta: %s", partition$query))
     }
-    partition_audit[[length(partition_audit) + 1L]] <- list(
+    repositories <- c(repositories, items)
+    downloaded <- downloaded + length(items)
+  }
+
+  if (downloaded != total) {
+    stop(sprintf("A consulta retornou %d de %d resultados esperados: %s", downloaded, total, partition$query), call. = FALSE)
+  }
+  list(
+    repositories = repositories,
+    audit = list(
       query = partition$query,
       created_start = partition$start,
       created_end = partition$end,
@@ -335,6 +334,17 @@ search_by_topic <- function(topic, token) {
       pages = pages,
       downloaded = downloaded
     )
+  )
+}
+
+search_by_topic <- function(topic, token) {
+  partitions <- partition_topic_query(topic, token = token)
+  repositories <- list()
+  partition_audit <- vector("list", length(partitions))
+  for (index in seq_along(partitions)) {
+    result <- download_search_partition(partitions[[index]], token)
+    repositories <- c(repositories, result$repositories)
+    partition_audit[[index]] <- result$audit
   }
   list(
     repositories = repositories,
@@ -397,14 +407,6 @@ candidate_passes_static_filters <- function(candidate, approved_ids) {
     !is.na(created_at) && created_at < selection_time(SELECTION_GDPR_DATE) &&
     scalar_int(repository$stargazers_count, 0L) >= SELECTION_MIN_STARS &&
     scalar_text(license$spdx_id, "") %in% approved_ids
-}
-
-reject_selection <- function(reason) {
-  invisible(NULL)
-}
-
-selection_rate_limit_error <- function(error) {
-  api_error_is_rate_limited(error)
 }
 
 write_selection_candidates_checkpoint <- function(found, state) {
@@ -507,52 +509,16 @@ update_selection_progress_state <- function(state, evaluated, total, repository 
 evaluate_candidate <- function(candidate, approved_ids, token, issue_count = NULL) {
   repository <- candidate$repository
   full_name <- scalar_text(repository$full_name, "")
-  if (!is_public_repository(repository)) {
-    reject_selection("não público")
-    return(NULL)
-  }
-  if (scalar_bool(repository$fork, TRUE)) {
-    reject_selection("é fork")
-    return(NULL)
-  }
-  if (scalar_bool(repository$archived, TRUE)) {
-    reject_selection("está arquivado")
-    return(NULL)
-  }
-  created_at <- selection_time(repository$created_at)
-  cutoff <- selection_time(SELECTION_GDPR_DATE)
-  if (is.na(created_at) || created_at >= cutoff) {
-    reject_selection("criado em ou depois de 25/05/2018")
-    return(NULL)
-  }
+  if (!candidate_passes_static_filters(candidate, approved_ids)) return(NULL)
   stars <- scalar_int(repository$stargazers_count, 0L)
-  if (stars < SELECTION_MIN_STARS) {
-    reject_selection("menos de 500 estrelas")
-    return(NULL)
-  }
   license <- repository$license %||% list()
   spdx_id <- scalar_text(license$spdx_id, "")
-  if (!(spdx_id %in% approved_ids)) {
-    detail <- if (nzchar(spdx_id)) spdx_id else "sem SPDX reconhecido"
-    reject_selection(sprintf("licença não aprovada (%s)", detail))
-    return(NULL)
-  }
   issues <- scalar_int(issue_count, 0L)
-  if (issues < SELECTION_MIN_ISSUES) {
-    reject_selection(sprintf("apenas %d issues", issues))
-    return(NULL)
-  }
+  if (issues < SELECTION_MIN_ISSUES) return(NULL)
   activity <- commit_activity(full_name, token)
-  if (is.null(activity) || activity$months < SELECTION_MIN_ACTIVITY_MONTHS) {
-    months <- if (is.null(activity)) 0 else activity$months
-    reject_selection(sprintf("apenas %.1f meses de atividade", months))
-    return(NULL)
-  }
+  if (is.null(activity) || activity$months < SELECTION_MIN_ACTIVITY_MONTHS) return(NULL)
   window <- activity_window(full_name, token)
-  if (!window$pre || !window$post) {
-    reject_selection("sem atividade antes e depois de 25/05/2018")
-    return(NULL)
-  }
+  if (!window$pre || !window$post) return(NULL)
   list(
     repository = full_name,
     url = scalar_text(repository$html_url, ""),
@@ -610,6 +576,117 @@ write_selection <- function(records, path) {
   list(path = path, sample_sha256 = sha256_file(path), rows = nrow(data))
 }
 
+load_or_search_selection_candidates <- function(token, state) {
+  found <- read_selection_candidates_checkpoint(state)
+  if (is.null(found)) {
+    found <- search_candidates(token)
+    write_selection_candidates_checkpoint(found, state)
+  }
+  if (!length(found$candidates)) stop("A seleção não encontrou candidatos.", call. = FALSE)
+  found
+}
+
+resolve_selection_issue_counts <- function(candidates, state, token, approved_ids) {
+  issue_counts <- read_selection_issue_counts(state)
+  static_candidates <- candidates[vapply(
+    candidates, candidate_passes_static_filters, logical(1L), approved_ids = approved_ids
+  )]
+  static_repositories <- vapply(
+    static_candidates,
+    function(candidate) scalar_text(candidate$repository$full_name, ""),
+    character(1L)
+  )
+  cached_repositories <- names(issue_counts %||% setNames(integer(), character()))
+  missing_repositories <- setdiff(static_repositories, cached_repositories)
+  if (!length(missing_repositories)) return(issue_counts)
+
+  new_counts <- count_real_issues_batch(missing_repositories, token)
+  issue_counts <- c(issue_counts %||% setNames(integer(), character()), new_counts)
+  write_selection_issue_counts(state, issue_counts)
+  issue_counts
+}
+
+is_selected_evaluation <- function(evaluation) {
+  is.list(evaluation) && identical(scalar_text(evaluation$status, ""), "selected")
+}
+
+count_selected_evaluations <- function(evaluations, candidate_count) {
+  sum(vapply(seq_len(candidate_count), function(index) {
+    is_selected_evaluation(evaluations[[as.character(index)]])
+  }, logical(1L)))
+}
+
+evaluate_candidate_safely <- function(candidate, approved_ids, token, issue_count) {
+  tryCatch(
+    evaluate_candidate(candidate, approved_ids, token, issue_count = issue_count),
+    error = function(error) {
+      if (api_error_is_rate_limited(error)) stop(error)
+      NULL
+    }
+  )
+}
+
+evaluate_pending_candidates <- function(candidates, issue_counts, approved_ids, token, state) {
+  evaluations <- read_selection_evaluations()
+  evaluated_indices <- suppressWarnings(as.integer(names(evaluations)))
+  evaluated_indices <- evaluated_indices[
+    !is.na(evaluated_indices) & evaluated_indices >= 1L & evaluated_indices <= length(candidates)
+  ]
+  pending <- setdiff(seq_along(candidates), evaluated_indices)
+  approved_count <- count_selected_evaluations(evaluations, length(candidates))
+  last_report <- Sys.time()
+
+  for (index in pending) {
+    candidate <- candidates[[index]]
+    name <- scalar_text(candidate$repository$full_name, "")
+    issue_count <- if (!is.null(issue_counts) && name %in% names(issue_counts)) issue_counts[[name]] else NULL
+    result <- evaluate_candidate_safely(candidate, approved_ids, token, issue_count)
+    evaluation <- append_selection_evaluation(
+      index, name, result,
+      if (is.null(result)) "não atende a um critério de elegibilidade" else ""
+    )
+    evaluations[[as.character(index)]] <- evaluation
+    if (!is.null(result)) approved_count <- approved_count + 1L
+    state <- update_selection_progress_state(state, length(evaluations), length(candidates), name)
+    now <- Sys.time()
+    should_report <- index == tail(pending, 1L) || as.numeric(difftime(now, last_report, units = "secs")) >= 60
+    if (should_report) {
+      cat(sprintf("Repositórios aprovados: %d/%d\n", approved_count, length(candidates)))
+      last_report <- now
+    }
+  }
+  if (!length(pending)) cat(sprintf("Repositórios aprovados: %d/%d\n", approved_count, length(candidates)))
+  evaluations
+}
+
+selected_repositories_from_evaluations <- function(candidates, evaluations) {
+  selected_indices <- which(vapply(seq_along(candidates), function(index) {
+    is_selected_evaluation(evaluations[[as.character(index)]])
+  }, logical(1L)))
+  lapply(selected_indices, function(index) evaluations[[as.character(index)]]$record)
+}
+
+finalize_selection <- function(found, candidates, evaluations, output, state, selection_run_id) {
+  selected <- selected_repositories_from_evaluations(candidates, evaluations)
+  if (!length(selected)) {
+    stop("A seleção não produziu nenhum repositório elegível; a amostra anterior foi preservada e não pode ser usada nesta execução.", call. = FALSE)
+  }
+  found$audit$unique_candidates <- length(candidates)
+  found$audit$selected_repositories <- length(selected)
+  found$audit$generated_at <- selection_timestamp()
+  found$audit$selection_run_id <- scalar_text(state$run_id, selection_run_id)
+
+  selection_written <- write_selection(selected, output)
+  found$audit$sample_sha256 <- selection_written$sample_sha256
+  found$audit$sample_rows <- selection_written$rows
+  audit_path <- resolve_project_path(selection_audit_path())
+  dir.create(dirname(audit_path), recursive = TRUE, showWarnings = FALSE)
+  atomic_write_json(found$audit, audit_path, pretty = TRUE)
+  selection_written$evaluated_candidates <- length(candidates)
+  selection_written$total_candidates <- length(candidates)
+  invisible(selection_written)
+}
+
 run_full_selection <- function(output, token, approved_ids, selection_run_id = "", state = NULL) {
   state <- state %||% read_selection_state()
   if (!is.list(state)) {
@@ -620,92 +697,12 @@ run_full_selection <- function(output, token, approved_ids, selection_run_id = "
       configuration_fingerprint = selection_configuration_fingerprint()
     )
   }
-  progress <- read_selection_candidates_checkpoint(state)
-  if (is.null(progress)) {
-    found <- search_candidates(token)
-    write_selection_candidates_checkpoint(found, state)
-  } else {
-    found <- progress
-  }
+  found <- load_or_search_selection_candidates(token, state)
   candidates <- found$candidates
-  if (!length(candidates)) stop("A seleção ampliada não encontrou candidatos.", call. = FALSE)
-  cat(sprintf("Repositórios únicos encontrados: %d\n", length(candidates)))
   state <- update_selection_progress_state(state, length(read_selection_evaluations()), length(candidates))
-
-  issue_counts <- read_selection_issue_counts(state)
-  static_candidates <- candidates[vapply(candidates, candidate_passes_static_filters, logical(1L), approved_ids = approved_ids)]
-  static_repositories <- vapply(static_candidates, function(candidate) scalar_text(candidate$repository$full_name, ""), character(1L))
-  missing_issue_counts <- static_repositories[!(static_repositories %in% names(issue_counts %||% setNames(integer(), character())))]
-  if (length(missing_issue_counts)) {
-    new_issue_counts <- count_real_issues_batch(missing_issue_counts, token)
-    issue_counts <- c(issue_counts %||% setNames(integer(), character()), new_issue_counts)
-    write_selection_issue_counts(state, issue_counts)
-  }
-  passed_issue_filter <- vapply(static_repositories, function(repository) {
-    count <- if (!is.null(issue_counts) && repository %in% names(issue_counts)) issue_counts[[repository]] else 0L
-    scalar_int(count, 0L) >= SELECTION_MIN_ISSUES
-  }, logical(1L))
-  cat(sprintf("Filtro de issues: %d entraram → %d permaneceram.\n",
-              length(static_repositories), sum(passed_issue_filter)))
-
-  evaluations <- read_selection_evaluations()
-  evaluated_indices <- suppressWarnings(as.integer(names(evaluations)))
-  evaluated_indices <- evaluated_indices[!is.na(evaluated_indices) & evaluated_indices >= 1L & evaluated_indices <= length(candidates)]
-  pending <- setdiff(seq_along(candidates), evaluated_indices)
-  approved_count <- sum(vapply(seq_along(candidates), function(index) {
-    evaluation <- evaluations[[as.character(index)]]
-    is.list(evaluation) && identical(scalar_text(evaluation$status, ""), "selected")
-  }, logical(1L)))
-  last_report <- Sys.time()
-  evaluated_now <- 0L
-  for (index in pending) {
-    candidate <- candidates[[index]]
-    name <- scalar_text(candidate$repository$full_name, "")
-    issue_count <- if (!is.null(issue_counts) && name %in% names(issue_counts)) issue_counts[[name]] else NULL
-    result <- tryCatch(
-      evaluate_candidate(candidate, approved_ids, token, issue_count = issue_count),
-      error = function(error) {
-        if (selection_rate_limit_error(error)) stop(error)
-        reject_selection(conditionMessage(error))
-        NULL
-      }
-    )
-    evaluation <- append_selection_evaluation(
-      index, name, result,
-      if (is.null(result)) "não atende a um critério de elegibilidade" else ""
-    )
-    evaluations[[as.character(index)]] <- evaluation
-    if (!is.null(result)) approved_count <- approved_count + 1L
-    state <- update_selection_progress_state(state, length(evaluations), length(candidates), name)
-    evaluated_now <- evaluated_now + 1L
-    now <- Sys.time()
-    if (evaluated_now == length(pending) || as.numeric(difftime(now, last_report, units = "secs")) >= 60) {
-      cat(sprintf("Repositórios aprovados: %d/%d\n", approved_count, length(candidates)))
-      last_report <- now
-    }
-  }
-  if (!length(pending)) cat(sprintf("Repositórios aprovados: %d/%d\n", approved_count, length(candidates)))
-  selected <- lapply(seq_along(candidates), function(index) {
-    evaluation <- evaluations[[as.character(index)]]
-    if (is.list(evaluation) && identical(scalar_text(evaluation$status, ""), "selected")) evaluation$record else NULL
-  })
-  selected <- Filter(Negate(is.null), selected)
-  if (!length(selected)) {
-    stop("A seleção ampliada não produziu nenhum repositório elegível; a amostra anterior foi preservada e não pode ser usada nesta execução.", call. = FALSE)
-  }
-  found$audit$unique_candidates <- length(candidates)
-  found$audit$selected_repositories <- length(selected)
-  found$audit$generated_at <- selection_timestamp()
-  found$audit$selection_run_id <- scalar_text(state$run_id, selection_run_id)
-  selection_written <- write_selection(selected, output)
-  found$audit$sample_sha256 <- selection_written$sample_sha256
-  found$audit$sample_rows <- selection_written$rows
-  audit_path <- resolve_project_path(selection_audit_path())
-  dir.create(dirname(audit_path), recursive = TRUE, showWarnings = FALSE)
-  atomic_write_json(found$audit, audit_path, pretty = TRUE)
-  selection_written$evaluated_candidates <- length(candidates)
-  selection_written$total_candidates <- length(candidates)
-  invisible(selection_written)
+  issue_counts <- resolve_selection_issue_counts(candidates, state, token, approved_ids)
+  evaluations <- evaluate_pending_candidates(candidates, issue_counts, approved_ids, token, state)
+  finalize_selection(found, candidates, evaluations, output, state, selection_run_id)
 }
 
 run_selection <- function(options) {

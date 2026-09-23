@@ -1,6 +1,6 @@
 project:
-  name: github-ai-ml-privacy-documentation-gdpr-expanded
-  description: Experimento de documentação de privacidade em repositórios públicos de IA/ML com descoberta por tópicos ampliada
+  name: github-ai-ml-privacy-documentation-gdpr
+  description: Experimento de documentação de privacidade em repositórios públicos de IA/ML identificados por busca temática
 paths:
   sample: inputs/final/selected_repositories.csv
   sample_hash: inputs/final/published_sample.sha256.txt
@@ -19,7 +19,7 @@ api:
   github_base: "https://api.github.com"
   github_graphql_base: "https://api.github.com/graphql"
   raw_base: "https://raw.githubusercontent.com"
-  user_agent: "github-ai-ml-privacy-research/expanded-topics"
+  user_agent: "github-ai-ml-privacy-research/2026-09"
   connect_timeout_seconds: 30
   timeout_seconds: 45
   max_attempts: 4

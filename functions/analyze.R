@@ -26,8 +26,65 @@ records_to_dataset <- function(sample, records, source_hash) {
   list(rows = rows, data = as.data.frame(values, stringsAsFactors = FALSE, check.names = FALSE))
 }
 
+calculate_d1_statistics <- function(pre_d1, post_d1) {
+  losses <- sum(pre_d1 == 1 & post_d1 == 0, na.rm = TRUE)
+  gains <- sum(pre_d1 == 0 & post_d1 == 1, na.rm = TRUE)
+  pair_count <- length(pre_d1)
+  list(
+    n_complete_pairs = pair_count,
+    pre_ones = sum(pre_d1 == 1, na.rm = TRUE),
+    post_ones = sum(post_d1 == 1, na.rm = TRUE),
+    pre_proportion = if (pair_count) mean(pre_d1 == 1, na.rm = TRUE) else 0,
+    post_proportion = if (pair_count) mean(post_d1 == 1, na.rm = TRUE) else 0,
+    pre1_post0_b = losses,
+    pre0_post1_c = gains,
+    exact_mcnemar_p_two_sided = exact_mcnemar(losses, gains),
+    paired_proportion_difference_post_minus_pre = if (pair_count) (gains - losses) / pair_count else 0,
+    matched_odds_ratio_c_over_b_haldane = (gains + 0.5) / (losses + 0.5)
+  )
+}
+
+calculate_score_statistics <- function(pre_score, post_score) {
+  differences <- post_score - pre_score
+  wilcoxon <- wilcoxon_exact(differences)
+  list(
+    n_complete_pairs = length(differences),
+    pre_mean = if (length(pre_score)) mean(pre_score) else 0,
+    post_mean = if (length(post_score)) mean(post_score) else 0,
+    pre_median = if (length(pre_score)) median(pre_score) else 0,
+    post_median = if (length(post_score)) median(post_score) else 0,
+    pre_iqr = c(percentile_value(pre_score, 0.25), percentile_value(pre_score, 0.75)),
+    post_iqr = c(percentile_value(post_score, 0.25), percentile_value(post_score, 0.75)),
+    difference_mean = if (length(differences)) mean(differences) else 0,
+    difference_median = if (length(differences)) median(differences) else 0,
+    difference_iqr = c(percentile_value(differences, 0.25), percentile_value(differences, 0.75)),
+    difference_ci95_bootstrap_median = bootstrap_median_ci(differences),
+    increased = sum(differences > 0, na.rm = TRUE),
+    decreased = sum(differences < 0, na.rm = TRUE),
+    unchanged = sum(differences == 0, na.rm = TRUE),
+    wilcoxon_signed_rank_exact = c(
+      wilcoxon,
+      list(zero_differences_excluded = sum(differences == 0, na.rm = TRUE), ties_use_average_ranks = TRUE)
+    )
+  )
+}
+
+criterion_frequency <- function(dataset, indices, period) {
+  values <- vapply(names(RULES), function(code) {
+    column <- suppressWarnings(as.numeric(dataset[[paste0(period, "_", code)]][indices]))
+    sum(column == 1, na.rm = TRUE)
+  }, integer(1L))
+  setNames(values, names(RULES))
+}
+
 calculate_statistics <- function(records, dataset, sample, input_path = sample_path()) {
-  complete <- vapply(records, is_complete_record, logical(1L))
+  records_by_repository <- index_records(records)
+  complete <- vapply(as.character(sample$repository), function(repository) {
+    repository <- scalar_text(repository, "")
+    if (!nzchar(repository)) return(FALSE)
+    record <- records_by_repository[[repository]]
+    !is.null(record) && is_complete_record(record)
+  }, logical(1L))
   indices <- which(complete)
   collector_versions <- sort(unique(vapply(
     records,
@@ -39,48 +96,17 @@ calculate_statistics <- function(records, dataset, sample, input_path = sample_p
   post_d1 <- numeric_column("post_D1")
   pre_score <- numeric_column("pre_score")
   post_score <- numeric_column("post_score")
-  differences <- post_score - pre_score
-  b <- sum(pre_d1 == 1 & post_d1 == 0, na.rm = TRUE)
-  c_value <- sum(pre_d1 == 0 & post_d1 == 1, na.rm = TRUE)
-  wilcoxon <- wilcoxon_exact(differences)
+  rq1 <- calculate_d1_statistics(pre_d1, post_d1)
   generated_at <- format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
-  frequency_for <- function(period) {
-    values <- vapply(names(RULES), function(code) {
-      column <- suppressWarnings(as.numeric(dataset[[paste0(period, "_", code)]][indices]))
-      sum(column == 1, na.rm = TRUE)
-    }, integer(1L))
-    setNames(values, names(RULES))
-  }
-  pre_frequency <- frequency_for("pre")
-  post_frequency <- frequency_for("post")
+  pre_frequency <- criterion_frequency(dataset, indices, "pre")
+  post_frequency <- criterion_frequency(dataset, indices, "post")
+  rq2 <- calculate_score_statistics(pre_score, post_score)
   list(
     analysis_population = "pares com as duas versões históricas e árvores Git recuperadas",
     total_input_rows = nrow(sample), complete_pairs = length(indices), incomplete_pairs = nrow(sample) - length(indices),
     incomplete_repositories = as.character(sample$repository[!complete]),
-    rq1_mcnemar = list(
-      n_complete_pairs = length(indices), pre_ones = sum(pre_d1 == 1, na.rm = TRUE), post_ones = sum(post_d1 == 1, na.rm = TRUE),
-      pre_proportion = if (length(indices)) mean(pre_d1 == 1, na.rm = TRUE) else 0,
-      post_proportion = if (length(indices)) mean(post_d1 == 1, na.rm = TRUE) else 0,
-      pre1_post0_b = b, pre0_post1_c = c_value,
-      exact_mcnemar_p_two_sided = exact_mcnemar(b, c_value),
-      paired_proportion_difference_post_minus_pre = if (length(indices)) (c_value - b) / length(indices) else 0,
-      matched_odds_ratio_c_over_b_haldane = (c_value + 0.5) / (b + 0.5)
-    ),
-    rq2_wilcoxon = list(
-      n_complete_pairs = length(indices),
-      pre_mean = if (length(pre_score)) mean(pre_score) else 0,
-      post_mean = if (length(post_score)) mean(post_score) else 0,
-      pre_median = if (length(pre_score)) median(pre_score) else 0,
-      post_median = if (length(post_score)) median(post_score) else 0,
-      pre_iqr = c(percentile_value(pre_score, 0.25), percentile_value(pre_score, 0.75)),
-      post_iqr = c(percentile_value(post_score, 0.25), percentile_value(post_score, 0.75)),
-      difference_mean = if (length(differences)) mean(differences) else 0,
-      difference_median = if (length(differences)) median(differences) else 0,
-      difference_iqr = c(percentile_value(differences, 0.25), percentile_value(differences, 0.75)),
-      difference_ci95_bootstrap_median = bootstrap_median_ci(differences),
-      increased = sum(differences > 0, na.rm = TRUE), decreased = sum(differences < 0, na.rm = TRUE), unchanged = sum(differences == 0, na.rm = TRUE),
-      wilcoxon_signed_rank_exact = c(wilcoxon, list(zero_differences_excluded = sum(differences == 0, na.rm = TRUE), ties_use_average_ranks = TRUE))
-    ),
+    rq1_mcnemar = rq1,
+    rq2_wilcoxon = rq2,
     criterion_frequencies = list(pre = as.list(pre_frequency), post = as.list(post_frequency)),
     generated_at = generated_at,
     source_csv = project_relative(input_path),
@@ -104,6 +130,15 @@ fmt_num <- function(value, digits = 3L) {
   formatC(as.numeric(value), format = "f", digits = digits, decimal.mark = ".")
 }
 
+fmt_p <- function(value) {
+  if (is.null(value) || length(value) == 0L || is.na(value)) return("NA")
+  value <- as.numeric(value)
+  if (!is.finite(value) || value < 0) return("NA")
+  if (value == 0) return("<5e-324")
+  if (value < 0.001) return(formatC(value, format = "e", digits = 2L, decimal.mark = "."))
+  fmt_num(value, 6L)
+}
+
 fmt_pct <- function(value) paste0(fmt_num(as.numeric(value) * 100, 1L), "%")
 
 write_stats_markdown <- function(path, stats) {
@@ -125,7 +160,7 @@ write_stats_markdown <- function(path, stats) {
     sprintf("| Pré 1 → pós 0 | %d |", r1$pre1_post0_b), sprintf("| Pré 0 → pós 1 | %d |", r1$pre0_post1_c),
     sprintf("| Diferença de proporções pós−pré | %s |", fmt_pct(r1$paired_proportion_difference_post_minus_pre)),
     sprintf("| Odds ratio pareado com correção de Haldane | %s |", fmt_num(r1$matched_odds_ratio_c_over_b_haldane)),
-    sprintf("| p exato bicaudal | %s |", fmt_num(r1$exact_mcnemar_p_two_sided, 6L)), "",
+    sprintf("| p exato bicaudal | %s |", fmt_p(r1$exact_mcnemar_p_two_sided)), "",
     "## RQ2: Wilcoxon pareado para score 0–7", "",
     "As diferenças iguais a zero foram excluídas dos postos; empates nos valores absolutos receberam postos médios.", "",
     "| Medida | Pré | Pós |", "|---|---:|---:|",
@@ -137,7 +172,7 @@ write_stats_markdown <- function(path, stats) {
     sprintf("| IQR das diferenças | %s–%s |", fmt_num(r2$difference_iqr[[1L]]), fmt_num(r2$difference_iqr[[2L]])),
     sprintf("| IC95%% bootstrap da mediana | %s–%s |", fmt_num(r2$difference_ci95_bootstrap_median[[1L]]), fmt_num(r2$difference_ci95_bootstrap_median[[2L]])),
     sprintf("| Aumentaram / diminuíram / iguais | %d / %d / %d |", r2$increased, r2$decreased, r2$unchanged),
-    sprintf("| W+ / W− | %s / %s |", fmt_num(w$w_plus), fmt_num(w$w_minus)), sprintf("| p bicaudal exato | %s |", fmt_num(w$p_two_sided_exact, 6L)),
+    sprintf("| W+ / W− | %s / %s |", fmt_num(w$w_plus), fmt_num(w$w_minus)), sprintf("| p bicaudal exato | %s |", fmt_p(w$p_two_sided_exact)),
     sprintf("| Correlação bisserial de postos | %s |", fmt_num(w$rank_biserial, 6L)), "",
     "As regras foram aplicadas de forma conservadora; menções isoladas não foram consideradas evidência suficiente."
   )
@@ -159,7 +194,7 @@ write_report <- function(path, stats, sample, source_hash, dataset, input_path =
     "- Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.",
     sprintf("- Versão pré-GDPR: último commit até `%s`.", PRE_UNTIL),
     sprintf("- Versão pós-GDPR: último commit até `%s`.", POST_UNTIL),
-    sprintf("- Tópicos de descoberta ampliados (%d): `%s`.", length(selection_topics), paste(selection_topics, collapse = "`, `")),
+    sprintf("- Tópicos de descoberta usados (%d): `%s`.", length(selection_topics), paste(selection_topics, collapse = "`, `")),
     sprintf("- Filtros preservados: pelo menos %d estrelas, %d issues reais e %.0f meses de atividade.",
             as.integer(setting("selection", "min_stars", 500L)),
             as.integer(setting("selection", "min_issues", 100L)),
@@ -174,7 +209,7 @@ write_report <- function(path, stats, sample, source_hash, dataset, input_path =
     sprintf("- D1 pré: **%d/%d** (%s).", r1$pre_ones, stats$complete_pairs, fmt_pct(r1$pre_proportion)),
     sprintf("- D1 pós: **%d/%d** (%s).", r1$post_ones, stats$complete_pairs, fmt_pct(r1$post_proportion)),
     sprintf("- Pares completos: **%d**.", stats$complete_pairs), sprintf("- Score médio pré/pós: **%s / %s**.", fmt_num(r2$pre_mean), fmt_num(r2$post_mean)),
-    sprintf("- McNemar exato bicaudal: **p=%s**.", fmt_num(r1$exact_mcnemar_p_two_sided, 6L)), sprintf("- Wilcoxon exato bicaudal: **p=%s**.", fmt_num(r2$wilcoxon_signed_rank_exact$p_two_sided_exact, 6L)), "",
+    sprintf("- McNemar exato bicaudal: **p=%s**.", fmt_p(r1$exact_mcnemar_p_two_sided)), sprintf("- Wilcoxon exato bicaudal: **p=%s**.", fmt_p(r2$wilcoxon_signed_rank_exact$p_two_sided_exact)), "",
     "## Limitações", "",
     "Documentos externos ao repositório, práticas não versionadas e textos que não correspondem às expressões das regras podem não ser detectados. O score é discreto e concentrado em zero. Os p-valores devem ser interpretados junto com as contagens, evidências e tamanho das diferenças.", "",
     "## Reprodução", "",
@@ -309,7 +344,8 @@ run_analysis <- function(options) {
   write_stats_markdown(file.path(paths$reports, "statistical_results.md"), stats)
   write_report(file.path(paths$reports, "privacy_documentation_experiment_gdpr.md"), stats, sample, source_hash, dataset, input_path, raw_path)
   write_manifest(file.path(paths$metadata, "manifest.json"), stats, input_path, raw_path)
-  writeLines(capture.output(sessionInfo()), file.path(paths$metadata, "session_info.txt"), useBytes = TRUE)
+  session_info <- sub("[[:space:]]+$", "", capture.output(sessionInfo()))
+  writeLines(session_info, file.path(paths$metadata, "session_info.txt"), useBytes = TRUE)
   rq1 <- stats$rq1_mcnemar
   rq2 <- stats$rq2_wilcoxon
   cat(sprintf(

@@ -1,25 +1,25 @@
 topic_label,source,role_in_strategy
-artificial-intelligence,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",base topic
-deep-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",base topic
-machine-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",base topic
-deep-neural-network,"Openja et al. (2024)",expanded subdomain
-reinforcement-learning,"Openja et al. (2024)",expanded subdomain
-computer-vision,"Openja et al. (2024)",expanded subdomain
-image-processing,"Openja et al. (2024)",expanded subdomain
-neural-network,"Openja et al. (2024)",expanded subdomain
-image-classification,"Openja et al. (2024)",expanded subdomain
-convolutional-neural-networks,"Openja et al. (2024)",expanded subdomain
-object-detection,"Openja et al. (2024)",expanded subdomain
-machine-intelligence,"Openja et al. (2024)",expanded subdomain
-natural-language-processing,"Openja et al. (2024)",expanded subdomain
-nlp,"Openja et al. (2024)",expanded alias
-large-language-model,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-large-language-models,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-llm,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-transformer,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-transformers,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-generative-ai,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-diffusion,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-multimodal,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-retrieval-augmented-generation,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
-ai-agents,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+artificial-intelligence,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",core area
+deep-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",core area
+machine-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",core area
+deep-neural-network,"Openja et al. (2024)",subdomain
+reinforcement-learning,"Openja et al. (2024)",subdomain
+computer-vision,"Openja et al. (2024)",subdomain
+image-processing,"Openja et al. (2024)",subdomain
+neural-network,"Openja et al. (2024)",subdomain
+image-classification,"Openja et al. (2024)",subdomain
+convolutional-neural-networks,"Openja et al. (2024)",subdomain
+object-detection,"Openja et al. (2024)",subdomain
+machine-intelligence,"Openja et al. (2024)",subdomain
+natural-language-processing,"Openja et al. (2024)",subdomain
+nlp,"Openja et al. (2024)",alias
+large-language-model,"study search vocabulary",AI/ML technical term
+large-language-models,"study search vocabulary",AI/ML technical term
+llm,"study search vocabulary",AI/ML technical term
+transformer,"study search vocabulary",AI/ML technical term
+transformers,"study search vocabulary",AI/ML technical term
+generative-ai,"study search vocabulary",AI/ML technical term
+diffusion,"study search vocabulary",AI/ML technical term
+multimodal,"study search vocabulary",AI/ML technical term
+retrieval-augmented-generation,"study search vocabulary",AI/ML technical term
+ai-agents,"study search vocabulary",AI/ML technical term

@@ -663,7 +663,98 @@ api_retry_delay <- function(status, rate, attempt, rate_limited = FALSE) {
   min(ceiling, base * 2 ^ max(0, attempt - 1L))
 }
 
-# Centraliza autenticação, limite compartilhado e tentativas transitórias.
+http_request_files <- function() {
+  list(
+    body = tempfile(fileext = ".body"),
+    status = tempfile(fileext = ".status"),
+    error = tempfile(fileext = ".error"),
+    headers = tempfile(fileext = ".headers")
+  )
+}
+
+curl_request_arguments <- function(url, token, method, body_json, connect_timeout, request_timeout, files) {
+  headers <- c(
+    "Accept: application/vnd.github+json",
+    "X-GitHub-Api-Version: 2022-11-28",
+    paste0("User-Agent: ", setting("api", "user_agent", "github-ai-ml-privacy-research"))
+  )
+  if (nzchar(token)) headers <- c(headers, paste0("Authorization: Bearer ", token))
+  args <- c(
+    "--silent", "--show-error", "--location", "--connect-timeout", as.character(connect_timeout),
+    "--max-time", as.character(request_timeout)
+  )
+  method <- toupper(as.character(method %||% "GET"))
+  if (!method %in% c("GET", "POST")) stop(sprintf("Método HTTP não suportado: %s", method), call. = FALSE)
+  if (identical(method, "POST")) {
+    args <- c(args, "--request", "POST", "--header", shQuote("Content-Type: application/json"))
+    if (!is.null(body_json)) args <- c(args, "--data-raw", shQuote(as.character(body_json)))
+  }
+  # system2() monta a linha de comando do shell; valores com espaços
+  # precisam ser protegidos para que cada cabeçalho permaneça um argumento.
+  for (header in headers) args <- c(args, "--header", shQuote(header))
+  c(
+    args,
+    "--dump-header", shQuote(files$headers), "--output", shQuote(files$body),
+    "--write-out", shQuote("%{http_code}"), shQuote(url)
+  )
+}
+
+perform_http_request_attempt <- function(url, token, resource, method, body_json,
+                                         connect_timeout, request_timeout, files) {
+  api_wait_for_slot(resource)
+  args <- curl_request_arguments(url, token, method, body_json, connect_timeout, request_timeout, files)
+  unlink(c(files$status, files$error, files$headers))
+  exit_status <- tryCatch(
+    system2("curl", args, stdout = files$status, stderr = files$error),
+    error = function(...) 1L
+  )
+  status_text <- if (file.exists(files$status)) paste(readLines(files$status, warn = FALSE), collapse = "") else ""
+  status <- suppressWarnings(as.integer(trimws(status_text)))
+  error_text <- if (file.exists(files$error)) paste(readLines(files$error, warn = FALSE), collapse = " ") else ""
+  bytes <- if (file.exists(files$body)) readBin(files$body, "raw", n = file.info(files$body)$size) else raw(0)
+  body_text <- if (length(bytes)) iconv(rawToChar(bytes), from = "UTF-8", to = "UTF-8", sub = "") else ""
+  raw_headers <- if (file.exists(files$headers)) readLines(files$headers, warn = FALSE) else character()
+  rate <- rate_headers(parse_curl_headers(raw_headers))
+  list(
+    status = status,
+    body_text = body_text,
+    error_text = error_text,
+    raw_headers = raw_headers,
+    rate = rate,
+    exit_status = exit_status
+  )
+}
+
+http_response <- function(status, body_text, error_text, rate, parse_json, raw_headers, return_headers) {
+  if (is.na(status)) status <- 0L
+  parsed_body <- tryCatch(
+    if (nzchar(body_text)) jsonlite::fromJSON(body_text, simplifyVector = FALSE) else list(),
+    error = function(error) list()
+  )
+  body <- if (parse_json) parsed_body else body_text
+  error <- if (status >= 200L && status < 300L) {
+    ""
+  } else if (status > 0L) {
+    detail <- api_error_detail(body_text, error_text)
+    paste0("HTTP ", status, if (nzchar(detail)) paste0(": ", detail) else "")
+  } else {
+    paste0("Falha de transporte", if (nzchar(error_text)) paste0(": ", api_error_detail("", error_text)) else "")
+  }
+  result <- list(status = status, body = body, error = error, rate = rate)
+  if (return_headers) result$headers <- raw_headers
+  result
+}
+
+sleep_before_http_retry <- function(delay) {
+  remaining <- delay
+  while (remaining > 0) {
+    chunk <- min(60, remaining)
+    Sys.sleep(chunk)
+    remaining <- remaining - chunk
+  }
+}
+
+# Coordena tentativas, limite compartilhado e resposta HTTP final.
 http_request <- function(url, token = "", parse_json = TRUE, max_attempts = NULL,
                          return_headers = FALSE, resource = "core", method = "GET",
                          body_json = NULL) {
@@ -671,95 +762,42 @@ http_request <- function(url, token = "", parse_json = TRUE, max_attempts = NULL
   if (is.na(max_attempts) || max_attempts < 1L) max_attempts <- 1L
   retry_budget <- suppressWarnings(as.numeric(setting("api", "retry_budget_seconds", 180)))
   if (is.na(retry_budget) || retry_budget < 0) retry_budget <- 180
-  started <- Sys.time()
-  body_path <- tempfile(fileext = ".body")
-  status_path <- tempfile(fileext = ".status")
-  error_path <- tempfile(fileext = ".error")
-  header_path <- tempfile(fileext = ".headers")
-  on.exit(unlink(c(body_path, status_path, error_path, header_path)), add = TRUE)
   connect_timeout <- suppressWarnings(as.numeric(setting("api", "connect_timeout_seconds", 30)))
   request_timeout <- suppressWarnings(as.numeric(setting("api", "timeout_seconds", 45)))
   if (is.na(connect_timeout) || connect_timeout <= 0) connect_timeout <- 30
   if (is.na(request_timeout) || request_timeout <= 0) request_timeout <- 45
+  max_rate_wait <- suppressWarnings(as.numeric(setting("api", "max_rate_wait_seconds", 7200)))
+  if (is.na(max_rate_wait) || max_rate_wait < 0) max_rate_wait <- 7200
 
+  started <- Sys.time()
+  files <- http_request_files()
+  on.exit(unlink(unlist(files, use.names = FALSE)), add = TRUE)
   attempt <- 1L
   repeat {
-    api_wait_for_slot(resource)
-    headers <- c(
-      "Accept: application/vnd.github+json",
-      "X-GitHub-Api-Version: 2022-11-28",
-      paste0("User-Agent: ", setting("api", "user_agent", "github-ai-ml-privacy-research"))
+    response <- perform_http_request_attempt(
+      url, token, resource, method, body_json, connect_timeout, request_timeout, files
     )
-    if (nzchar(token)) headers <- c(headers, paste0("Authorization: Bearer ", token))
-    args <- c(
-      "--silent", "--show-error", "--location", "--connect-timeout", as.character(connect_timeout),
-      "--max-time", as.character(request_timeout)
-    )
-    method <- toupper(as.character(method %||% "GET"))
-    if (!method %in% c("GET", "POST")) stop(sprintf("Método HTTP não suportado: %s", method), call. = FALSE)
-    if (identical(method, "POST")) {
-      args <- c(args, "--request", "POST", "--header", shQuote("Content-Type: application/json"))
-      if (!is.null(body_json)) args <- c(args, "--data-raw", shQuote(as.character(body_json)))
-    }
-    # system2() monta a linha de comando do shell; valores com espaços
-    # precisam ser protegidos para que cada cabeçalho permaneça um argumento.
-    for (header in headers) args <- c(args, "--header", shQuote(header))
-    args <- c(args, "--dump-header", shQuote(header_path), "--output", shQuote(body_path),
-              "--write-out", shQuote("%{http_code}"), shQuote(url))
-    unlink(c(status_path, error_path, header_path))
-    exit_status <- tryCatch(
-      system2("curl", args, stdout = status_path, stderr = error_path),
-      error = function(...) 1L
-    )
-    status_text <- if (file.exists(status_path)) paste(readLines(status_path, warn = FALSE), collapse = "") else ""
-    status <- suppressWarnings(as.integer(trimws(status_text)))
-    error_text <- if (file.exists(error_path)) paste(readLines(error_path, warn = FALSE), collapse = " ") else ""
-    bytes <- if (file.exists(body_path)) readBin(body_path, "raw", n = file.info(body_path)$size) else raw(0)
-    body_text <- if (length(bytes)) iconv(rawToChar(bytes), from = "UTF-8", to = "UTF-8", sub = "") else ""
-    raw_headers <- if (file.exists(header_path)) readLines(header_path, warn = FALSE) else character()
-    parsed_headers <- parse_curl_headers(raw_headers)
-    rate <- rate_headers(parsed_headers)
-    rate_limited <- api_response_is_rate_limited(status, body_text, rate)
-    retryable <- api_response_is_retryable(status, body_text, rate) || exit_status != 0L
+    status <- response$status
+    rate <- response$rate
+    rate_limited <- api_response_is_rate_limited(status, response$body_text, rate)
+    retryable <- api_response_is_retryable(status, response$body_text, rate) || response$exit_status != 0L
     delay <- if (retryable) api_retry_delay(status, rate, attempt, rate_limited) else 0
     api_record_rate_state(resource, rate, fallback_delay = if (rate_limited) delay else 0)
     elapsed <- as.numeric(difftime(Sys.time(), started, units = "secs"))
-    max_rate_wait <- suppressWarnings(as.numeric(setting("api", "max_rate_wait_seconds", 7200)))
-    if (is.na(max_rate_wait) || max_rate_wait < 0) max_rate_wait <- 7200
-    if (rate_limited && elapsed + delay <= max_rate_wait) {
-      next
-    }
-    if (retryable && attempt < max_attempts && (elapsed + delay) <= retry_budget) {
-      cat(sprintf("GitHub API: resposta transitória HTTP %s; nova tentativa %d/%d.\n",
-                  ifelse(is.na(status), "transporte", status), attempt, max_attempts - 1L))
-      remaining_sleep <- delay
-      while (remaining_sleep > 0) {
-        chunk <- min(60, remaining_sleep)
-        Sys.sleep(chunk)
-        remaining_sleep <- remaining_sleep - chunk
-      }
+    if (rate_limited && elapsed + delay <= max_rate_wait) next
+    if (retryable && attempt < max_attempts && elapsed + delay <= retry_budget) {
+      cat(sprintf(
+        "GitHub API: resposta transitória HTTP %s; nova tentativa %d/%d.\n",
+        ifelse(is.na(status), "transporte", status), attempt, max_attempts - 1L
+      ))
+      sleep_before_http_retry(delay)
       attempt <- attempt + 1L
       next
     }
-    if (is.na(status)) status <- 0L
-    parsed_body <- tryCatch(
-      if (nzchar(body_text)) jsonlite::fromJSON(body_text, simplifyVector = FALSE) else list(),
-      error = function(error) list()
-    )
-    if (parse_json) {
-      body <- parsed_body
-    } else {
-      body <- body_text
-    }
-    error <- if (status >= 200L && status < 300L) "" else if (status > 0L) {
-      detail <- api_error_detail(body_text, error_text)
-      paste0("HTTP ", status, if (nzchar(detail)) paste0(": ", detail) else "")
-    } else {
-      paste0("Falha de transporte", if (nzchar(error_text)) paste0(": ", api_error_detail("", error_text)) else "")
-    }
-    result <- list(status = status, body = body, error = error, rate = rate)
-    if (return_headers) result$headers <- raw_headers
-    return(result)
+    return(http_response(
+      status, response$body_text, response$error_text, rate,
+      parse_json, response$raw_headers, return_headers
+    ))
   }
 }
 
@@ -996,85 +1034,118 @@ relevant_documents <- function(documents) {
   values
 }
 
-classify_documents <- function(documents, sha = "", repository = "") {
-  evidence <- list()
-  weak <- FALSE
+prepare_classification_documents <- function(documents, default_sha) {
   weak_pattern <- "\\bprivacy\\b|\\bgdpr\\b|personal data|personal information|data subject"
+  prepared <- list()
   for (document in documents) {
     if (scalar_int(document$status, 0L) != 200L) next
     content <- scalar_text(document$text, "")
     if (!nzchar(content)) next
     path <- scalar_text(document$path, "")
     dedicated <- is_dedicated_privacy_document(path)
-    if (safe_grepl(weak_pattern, tolower(content))) weak <- TRUE
-    values <- text_units(content)
-    if (!dedicated) values <- values[!vapply(values, is_external_resource_unit, logical(1L))]
-    values <- vapply(values, clean_for_matching, character(1L))
-    values <- values[nzchar(values)]
+    matching_units <- text_units(content)
+    if (!dedicated) matching_units <- matching_units[!vapply(matching_units, is_external_resource_unit, logical(1L))]
+    matching_units <- vapply(matching_units, clean_for_matching, character(1L))
+    matching_units <- matching_units[nzchar(matching_units)]
+    cleaned_content <- clean_for_matching(content)
+    prepared[[length(prepared) + 1L]] <- list(
+      path = path,
+      path_lower = tolower(path),
+      dedicated = dedicated,
+      matching_units = matching_units,
+      fallback_units = text_units(cleaned_content),
+      cleaned_content = cleaned_content,
+      commit_sha = scalar_text(document$commit_sha, default_sha),
+      weak = safe_grepl(weak_pattern, tolower(content))
+    )
+  }
+  prepared
+}
+
+rule_evidence_is_accepted <- function(code, snippet, path, repository) {
+  if (code == "C1" && !is_c1_evidence(snippet)) return(FALSE)
+  if (code == "C4" && !is_c4_evidence(snippet)) return(FALSE)
+  if (code != "C7" && is_anonymous_only(snippet)) return(FALSE)
+  if (code %in% c("C2", "C3", "C4", "C5", "C6") && !has_privacy_criterion_context(snippet, path)) return(FALSE)
+  if (code == "C5" && is_false_deletion_context(snippet)) return(FALSE)
+  if (code == "C6" && is_false_sharing_context(snippet)) return(FALSE)
+  is_project_contextual(snippet, path, repository)
+}
+
+collect_rule_evidence <- function(documents, sha, repository) {
+  evidence <- list()
+  for (document in documents) {
     for (code in names(RULES)) {
       if (!is.null(evidence[[code]])) next
       rule <- RULES[[code]]
-      accepted <- function(snippet) {
-        (code != "C1" || is_c1_evidence(snippet)) &&
-          (code != "C4" || is_c4_evidence(snippet)) &&
-          (code == "C7" || !is_anonymous_only(snippet)) &&
-          (!(code %in% c("C2", "C3", "C4", "C5", "C6")) || has_privacy_criterion_context(snippet, path)) &&
-          (code != "C5" || !is_false_deletion_context(snippet)) &&
-          (code != "C6" || !is_false_sharing_context(snippet)) &&
-          is_project_contextual(snippet, path, repository)
-      }
-      snippet <- find_evidence(values, rule$primary, rule$context, rule$required_groups, accepted)
-      if (nzchar(snippet)) evidence[[code]] <- paste0("sha=", sha, "; file=", path, "; text=", snippet)
+      accepted <- function(snippet) rule_evidence_is_accepted(code, snippet, document$path, repository)
+      snippet <- find_evidence(document$matching_units, rule$primary, rule$context, rule$required_groups, accepted)
+      if (nzchar(snippet)) evidence[[code]] <- paste0("sha=", sha, "; file=", document$path, "; text=", snippet)
     }
   }
+  evidence
+}
 
+find_policy_document_evidence <- function(documents, sha) {
+  policy_phrase <- "privacy\\s+(?:policy|notice)|data\\s+protection\\s+(?:policy|notice)"
+  path_markers <- c("privacy", "gdpr", "data-protection", "personal-data", "consent", "retention")
+  for (document in documents) {
+    snippet <- find_evidence(
+      document$matching_units,
+      c("privacy", "data protection", "personal data", "personal information", "data subject"),
+      c("policy", "notice", "data", "information", "collect", "process", "user"),
+      list()
+    )
+    dedicated_path <- any(vapply(path_markers, grepl, logical(1L), x = document$path_lower, fixed = TRUE))
+    if (nzchar(snippet) && (dedicated_path || safe_grepl(policy_phrase, document$cleaned_content))) {
+      return(paste0("sha=", sha, "; file=", document$path, "; text=", snippet))
+    }
+  }
+  ""
+}
+
+find_anonymous_usage_evidence <- function(documents, repository) {
+  primary <- c("anonymous user data", "anonymous usage", "usage analytics", "in-editor analytics")
+  context <- c("collect", "collection", "analytics", "reporting", "data", "privacy")
+  for (document in documents) {
+    snippet <- find_evidence(document$fallback_units, primary, context, list())
+    if (!nzchar(snippet) || is_bibliographic_context(snippet)) next
+    project_context <- is_project_contextual(snippet, document$path, repository)
+    known_analytics_phrase <- safe_grepl(paste(primary, collapse = "|"), snippet)
+    if (project_context || known_analytics_phrase) {
+      return(paste0("sha=", document$commit_sha, "; file=", document$path, "; text=", snippet))
+    }
+  }
+  ""
+}
+
+find_privacy_technology_evidence <- function(documents, sha, repository) {
+  pattern <- "privacy[- ]preserv|privacy of synthetic data|measur(?:e|es|ed|ing)[^.]{0,100}privacy|redact[^.]{0,100}(?:private|personal) data|(?:personal data|PII|privacy information)[^.]{0,100}leak|leak(?:ing|age)?[^.]{0,100}(?:personal data|PII|privacy information)"
+  for (document in documents) {
+    snippet <- direct_snippet(document$cleaned_content, pattern)
+    if (!nzchar(snippet) || is_bibliographic_context(snippet)) next
+    if (is_project_contextual(snippet, document$path, repository)) {
+      return(paste0("sha=", sha, "; file=", document$path, "; text=", snippet))
+    }
+  }
+  ""
+}
+
+find_fallback_d1_evidence <- function(documents, sha, repository) {
+  evidence <- find_policy_document_evidence(documents, sha)
+  if (nzchar(evidence)) return(evidence)
+  evidence <- find_anonymous_usage_evidence(documents, repository)
+  if (nzchar(evidence)) return(evidence)
+  find_privacy_technology_evidence(documents, sha, repository)
+}
+
+classify_documents <- function(documents, sha = "", repository = "") {
+  prepared_documents <- prepare_classification_documents(documents, sha)
+  evidence <- collect_rule_evidence(prepared_documents, sha, repository)
+  weak <- any(vapply(prepared_documents, `[[`, logical(1L), "weak"))
   d1_evidence <- if (length(evidence)) evidence[[1L]] else ""
-  if (!nzchar(d1_evidence)) {
-    policy_phrase <- "privacy\\s+(?:policy|notice)|data\\s+protection\\s+(?:policy|notice)"
-    for (document in documents) {
-      if (scalar_int(document$status, 0L) != 200L) next
-      content <- scalar_text(document$text, "")
-      if (!nzchar(content)) next
-      path <- scalar_text(document$path, "")
-      dedicated <- is_dedicated_privacy_document(path)
-      values <- text_units(content)
-      if (!dedicated) values <- values[!vapply(values, is_external_resource_unit, logical(1L))]
-      values <- vapply(values, clean_for_matching, character(1L))
-      values <- values[nzchar(values)]
-      snippet <- find_evidence(values, c("privacy", "data protection", "personal data", "personal information", "data subject"), c("policy", "notice", "data", "information", "collect", "process", "user"), list())
-      path_lower <- tolower(path)
-      dedicated_path <- any(vapply(c("privacy", "gdpr", "data-protection", "personal-data", "consent", "retention"), grepl, logical(1L), x = path_lower, fixed = TRUE))
-      if (nzchar(snippet) && (dedicated_path || safe_grepl(policy_phrase, clean_for_matching(content)))) {
-        d1_evidence <- paste0("sha=", sha, "; file=", path, "; text=", snippet)
-        break
-      }
-    }
-  }
-  if (!nzchar(d1_evidence)) {
-    for (document in documents) {
-      if (scalar_int(document$status, 0L) != 200L) next
-      content <- clean_for_matching(scalar_text(document$text, ""))
-      snippet <- find_evidence(text_units(content), c("anonymous user data", "anonymous usage", "usage analytics", "in-editor analytics"), c("collect", "collection", "analytics", "reporting", "data", "privacy"), list())
-      path <- scalar_text(document$path, "")
-      if (nzchar(snippet) && !is_bibliographic_context(snippet) && (is_project_contextual(snippet, path, repository) || safe_grepl("anonymous user data|anonymous usage|usage analytics|in-editor analytics", snippet))) {
-        d1_evidence <- paste0("sha=", scalar_text(document$commit_sha, sha), "; file=", path, "; text=", snippet)
-        break
-      }
-    }
-  }
-  if (!nzchar(d1_evidence)) {
-    pattern <- "privacy[- ]preserv|privacy of synthetic data|measur(?:e|es|ed|ing)[^.]{0,100}privacy|redact[^.]{0,100}(?:private|personal) data|(?:personal data|PII|privacy information)[^.]{0,100}leak|leak(?:ing|age)?[^.]{0,100}(?:personal data|PII|privacy information)"
-    for (document in documents) {
-      if (scalar_int(document$status, 0L) != 200L) next
-      content <- clean_for_matching(scalar_text(document$text, ""))
-      snippet <- direct_snippet(content, pattern)
-      path <- scalar_text(document$path, "")
-      if (nzchar(snippet) && !is_bibliographic_context(snippet) && is_project_contextual(snippet, path, repository)) {
-        d1_evidence <- paste0("sha=", sha, "; file=", path, "; text=", snippet)
-        break
-      }
-    }
-  }
+  if (!nzchar(d1_evidence)) d1_evidence <- find_fallback_d1_evidence(prepared_documents, sha, repository)
+
   values <- c(setNames(as.integer(names(RULES) %in% names(evidence)), names(RULES)))
   score <- sum(values)
   note <- if (!nzchar(d1_evidence) && weak) {

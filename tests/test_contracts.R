@@ -6,6 +6,7 @@ setwd(project_root)
 source(file.path(project_root, "functions", "common.R"))
 source(file.path(project_root, "functions", "cli.R"))
 source(file.path(project_root, "functions", "select_sample.R"))
+source(file.path(project_root, "functions", "analyze.R"))
 
 passed <- 0L
 check <- function(label, condition) {
@@ -57,9 +58,51 @@ check("erro de permissão não é confundido com rate limit",
 check("erros de limite identificados interrompem a coleta", api_error_is_rate_limited("Limite da API do GitHub ainda bloqueado"))
 check("erros comuns de acesso não são tratados como limite", !api_error_is_rate_limited("HTTP 403: Resource not accessible"))
 check("Retry-After determina a espera", identical(api_retry_delay(403L, list(retry_after = "17"), 1L, TRUE), 17))
+request_files <- list(body = "body", status = "status", error = "error", headers = "headers")
+get_arguments <- curl_request_arguments("https://example.test", "", "GET", NULL, 10, 20, request_files)
+post_arguments <- curl_request_arguments("https://example.test", "", "POST", "{}", 10, 20, request_files)
+check("requisições GET não adicionam corpo ou método explícito", !any(get_arguments %in% c("--request", "--data-raw")))
+post_body_index <- match("--data-raw", post_arguments) + 1L
+check("requisições POST incluem método e corpo",
+      all(c("--request", "POST", "--data-raw") %in% post_arguments) &&
+        identical(post_arguments[[post_body_index]], shQuote("{}")))
+check("métodos HTTP não suportados são rejeitados", errors(curl_request_arguments("https://example.test", "", "PATCH", NULL, 10, 20, request_files)))
+parsed_http_response <- http_response(200L, '{"ok":true}', "", list(), TRUE, character(), TRUE)
+check("resposta HTTP preserva o parsing JSON e os headers opcionais",
+      isTRUE(parsed_http_response$body$ok) && identical(parsed_http_response$headers, character()))
+error_http_response <- http_response(403L, '{"message":"denied"}', "", list(), FALSE, character(), FALSE)
+check("resposta HTTP preserva o corpo e o detalhe do erro", identical(error_http_response$body, '{"message":"denied"}') && identical(error_http_response$error, "HTTP 403: denied"))
 
 check("McNemar exato mantém resultado conhecido", abs(exact_mcnemar(1, 4) - 0.375) < 1e-12)
 wilcoxon <- wilcoxon_exact(c(1, 2, 3))
 check("Wilcoxon exato mantém resultado conhecido", abs(wilcoxon$p_two_sided_exact - 0.25) < 1e-12)
+
+classification <- function(d1, score) {
+  criteria <- as.list(setNames(rep(0L, length(RULES)), names(RULES)))
+  evidence <- as.list(setNames(rep("", length(RULES)), names(RULES)))
+  c(criteria, list(D1 = as.integer(d1), score = as.integer(score), D1_evidence = "", note = "", evidence = evidence))
+}
+incomplete_record <- list(
+  repository = "owner/incomplete",
+  pre = list(commit = list(sha = ""), tree_request_status = 0L, classification = classification(0L, 0L)),
+  post = list(commit = list(sha = ""), tree_request_status = 0L, classification = classification(0L, 0L))
+)
+complete_record <- list(
+  repository = "owner/complete",
+  pre = list(commit = list(sha = "pre-sha"), tree_request_status = 200L, classification = classification(1L, 1L)),
+  post = list(commit = list(sha = "post-sha"), tree_request_status = 200L, classification = classification(1L, 2L))
+)
+alignment_sample <- data.frame(repository = c("owner/incomplete", "owner/complete"), stringsAsFactors = FALSE)
+alignment_records <- list(complete_record, incomplete_record)
+alignment_dataset <- records_to_dataset(alignment_sample, alignment_records, "test-sha")$data
+alignment_stats <- calculate_statistics(
+  alignment_records, alignment_dataset, alignment_sample,
+  input_path = "inputs/final/selected_repositories.csv"
+)
+check("estatísticas alinham registros com a amostra por repositório",
+      identical(alignment_stats$incomplete_repositories, "owner/incomplete") &&
+        alignment_stats$rq1_mcnemar$pre_ones == 1L && alignment_stats$rq1_mcnemar$post_ones == 1L)
+check("p-valores pequenos são exibidos em notação científica", grepl("e-", fmt_p(2.160668e-7), fixed = TRUE))
+check("p-valores não nulos não são arredondados para zero", fmt_p(0) == "<5e-324")
 
 cat(sprintf("\n%d verificações locais passaram; nenhum pedido foi feito à API.\n", passed))

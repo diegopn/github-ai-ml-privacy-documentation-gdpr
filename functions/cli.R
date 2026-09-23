@@ -11,7 +11,7 @@ PIPELINE_STAGES <- list(
 )
 
 STAGE_LABELS <- c(
-  selection = "seleção ampliada",
+  selection = "seleção da amostra",
   collection = "coleta histórica nova",
   collection_check = "validação da coleta",
   analysis = "análise offline",

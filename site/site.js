@@ -124,7 +124,7 @@
     setText("#dados h2", copy.collectedData, false);
     setText("#metodologia h2", copy.methodology, false);
     setText("#reproducao h2", copy.reproduction, false);
-    setText("#referencias-expansao h2", copy.expandedReferences, false);
+    setText("#referencias-metodologicas h2", copy.methodologicalReferences, false);
 
     const metricLabels = [copy.sampleRepositories, copy.completePairs, copy.postD1, copy.postScore];
     document.querySelectorAll("#visao-geral .metric-card p").forEach((element, index) => {
@@ -177,7 +177,7 @@
       "#dados": copy.collectedData,
       "#metodologia": copy.methodology,
       "#reproducao": copy.reproduction,
-      "#referencias-expansao": copy.expandedReferences
+      "#referencias-metodologicas": copy.methodologicalReferences
     };
     document.querySelectorAll("#TOC a").forEach((link) => {
       const hash = new URL(link.href, document.baseURI).hash;
@@ -273,7 +273,15 @@
     });
   }
 
+  function setNavigationTargets() {
+    const brandLink = document.querySelector("#quarto-header .navbar-brand");
+    if (brandLink) brandLink.href = "https://diegopn.github.io/";
+    const homeLink = document.querySelector("#quarto-header .navbar-nav .nav-link");
+    if (homeLink) homeLink.setAttribute("href", "#title-block-header");
+  }
+
   async function init() {
+    setNavigationTargets();
     addControls();
     try {
       await applyLanguage(preferredLanguage(), false);

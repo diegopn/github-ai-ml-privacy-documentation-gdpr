@@ -13,7 +13,7 @@ Este projeto executa a coleta, a classificação textual e a análise estatísti
 - Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.
 - Versão pré-GDPR: último commit até `2018-05-24T23:59:59Z`.
 - Versão pós-GDPR: último commit até `2026-06-30T23:59:59Z`.
-- Tópicos de descoberta ampliados (24): `artificial-intelligence`, `deep-learning`, `machine-learning`, `deep-neural-network`, `reinforcement-learning`, `computer-vision`, `image-processing`, `neural-network`, `image-classification`, `convolutional-neural-networks`, `object-detection`, `machine-intelligence`, `natural-language-processing`, `nlp`, `large-language-model`, `large-language-models`, `llm`, `transformer`, `transformers`, `generative-ai`, `diffusion`, `multimodal`, `retrieval-augmented-generation`, `ai-agents`.
+- Tópicos de descoberta usados (24): `artificial-intelligence`, `deep-learning`, `machine-learning`, `deep-neural-network`, `reinforcement-learning`, `computer-vision`, `image-processing`, `neural-network`, `image-classification`, `convolutional-neural-networks`, `object-detection`, `machine-intelligence`, `natural-language-processing`, `nlp`, `large-language-model`, `large-language-models`, `llm`, `transformer`, `transformers`, `generative-ai`, `diffusion`, `multimodal`, `retrieval-augmented-generation`, `ai-agents`.
 - Filtros preservados: pelo menos 500 estrelas, 100 issues reais e 24 meses de atividade.
 - Manifesto das consultas particionadas: `outputs/metadata/selection_search_manifest.json`.
 - Nível de significância: **α = 0.050**.
@@ -32,8 +32,8 @@ D1 indica presença de evidência documental contextualizada. O PDE Score soma C
 - D1 pós: **29/474** (6.1%).
 - Pares completos: **474**.
 - Score médio pré/pós: **0.011 / 0.135**.
-- McNemar exato bicaudal: **p=0.000000**.
-- Wilcoxon exato bicaudal: **p=0.000000**.
+- McNemar exato bicaudal: **p=2.16e-07**.
+- Wilcoxon exato bicaudal: **p=1.19e-07**.
 
 ## Limitações
 

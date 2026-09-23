@@ -1,6 +1,6 @@
 ---
 title: "Experimento de documentação de privacidade"
-subtitle: "Projetos open source de IA/ML com vocabulário de descoberta ampliado"
+subtitle: "Projetos open source de IA/ML identificados por busca temática"
 ---
 
 ```{r}
@@ -22,6 +22,7 @@ fmt_p <- function(value) {
   }
   formatC(value, format = "f", digits = 6L, decimal.mark = ",", big.mark = ".")
 }
+fmt_score <- function(value) formatC(as.numeric(value), format = "f", digits = 3L, decimal.mark = ",")
 r1 <- stats$rq1_mcnemar
 r2 <- stats$rq2_wilcoxon
 w <- r2$wilcoxon_signed_rank_exact
@@ -94,19 +95,18 @@ foram `r post_d1` repositórios. O teste exato de McNemar bicaudal resultou em
 :::
 
 ::: {data-i18n-template="score-result"}
-O PDE Score médio passou de `r sprintf("%.3f", pre_score)` para
-`r sprintf("%.3f", post_score)`. O teste exato de Wilcoxon pareado resultou em
+O PDE Score médio passou de `r fmt_score(pre_score)` para
+`r fmt_score(post_score)`. O teste exato de Wilcoxon pareado resultou em
 `r fmt_p(w$p_two_sided_exact)`.
 :::
 
 ## Cobertura do vocabulário {#cobertura-vocabulario}
 
 ::: {data-i18n-template="vocabulary-coverage"}
-A descoberta foi ampliada de três tópicos-base para `r length(selection_topics)`
-tópicos, mantendo os critérios de elegibilidade e a análise documental. A
-expansão inclui subdomínios tradicionais e termos recentes de IA/ML; um tópico
-continua sendo apenas um sinal de descoberta, e não uma prova automática de
-escopo técnico.
+A busca usa `r length(selection_topics)` tópicos de IA/ML, incluindo subdomínios
+e áreas recentes. Os mesmos critérios de elegibilidade e análise documental são
+aplicados a todos os resultados; os tópicos servem como sinais de descoberta,
+não como prova automática de escopo técnico.
 :::
 
 ```{r}
@@ -249,23 +249,23 @@ flowchart TD
 
 ::: {data-i18n-template="selection-description"}
 O seletor consulta `r length(selection_topics)` tópicos configurados em
-`settings.yml`, cobrindo os tópicos-base, subdomínios como visão computacional,
-processamento de linguagem natural e detecção de objetos, e extensões como
-LLM, transformers, IA generativa, difusão, multimodalidade, RAG e agentes. Em
-seguida, aplica os mesmos critérios de visibilidade pública, licença SPDX/OSI
-aprovada, ausência de fork e arquivamento, criação anterior a 25 de maio de
-2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade mínima de
-24 meses e atividade antes e depois da data de referência.
+`settings.yml`, que abrangem áreas como visão computacional, processamento de
+linguagem natural, detecção de objetos, LLMs, transformers, IA generativa,
+difusão, multimodalidade, RAG e agentes. Em seguida, aplica os critérios de
+visibilidade pública, licença SPDX/OSI aprovada, ausência de fork e
+arquivamento, criação anterior a 25 de maio de 2018, pelo menos 500 estrelas,
+pelo menos 100 issues reais, atividade mínima de 24 meses e atividade antes e
+depois da data de referência.
 :::
 
 ::: {data-i18n="partitionText"}
-As consultas são particionadas por data de criação quando a contagem estimada
-se aproxima do limite de 1.000 resultados da Search API. As partições e páginas
-baixadas ficam registradas no manifesto de seleção.
+As consultas são particionadas por data de criação quando a contagem ultrapassa
+o limite de 1.000 resultados da Search API. As partições e páginas baixadas
+ficam registradas no manifesto de seleção.
 :::
 
 ::: {data-i18n-template="selection-manifest"}
-`r if (selection_audit_available) "O manifesto desta execução está disponível nos artefatos." else "O manifesto será produzido quando a seleção ampliada for executada com um token do GitHub."`
+`r if (selection_audit_available) "O manifesto desta execução está disponível nos artefatos." else "O manifesto será produzido quando a seleção da amostra for executada com um token do GitHub."`
 :::
 
 ::: {data-i18n="selectionAfter"}
@@ -400,11 +400,11 @@ evidências positivas, as estatísticas, os gráficos e os relatórios. O arquiv
 `outputs/metadata/manifest.json` registra os hashes e versões usados na execução.
 :::
 
-## Referências da expansão {#referencias-expansao}
+## Referências metodológicas {#referencias-metodologicas}
 
 ::: {data-i18n="referencesText"}
-As referências adicionais incorporadas ao vocabulário e à discussão de validade
-estão em [literature_expanded.md](inputs/reference/literature_expanded.md),
+As referências que fundamentam a seleção dos tópicos e a discussão de validade
+estão na [bibliografia metodológica do projeto](inputs/reference/literature_methods.md),
 incluindo Gonzalez et al. (2020), Openja et al. (2024), Latendresse et al.
 (2024), De Martino et al. (2025), Yang et al. (2023), Biswas et al. (2019) e
 Kalliamvakou et al. (2014).

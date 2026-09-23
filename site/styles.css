@@ -646,7 +646,8 @@ pre.sourceCode code *,
 
 #TOC a:hover,
 #TOC a.active {
-  color: var(--ink);
+  color: var(--language-active) !important;
+  font-weight: 600;
 }
 
 .btn,

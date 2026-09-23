@@ -20,7 +20,7 @@
 | Pré 0 → pós 1 | 27 |
 | Diferença de proporções pós−pré | 5.5% |
 | Odds ratio pareado com correção de Haldane | 18.333 |
-| p exato bicaudal | 0.000000 |
+| p exato bicaudal | 2.16e-07 |
 
 ## RQ2: Wilcoxon pareado para score 0–7
 
@@ -40,7 +40,7 @@ As diferenças iguais a zero foram excluídas dos postos; empates nos valores ab
 | IC95% bootstrap da mediana | 0.000–0.000 |
 | Aumentaram / diminuíram / iguais | 24 / 0 / 450 |
 | W+ / W− | 300.000 / 0.000 |
-| p bicaudal exato | 0.000000 |
+| p bicaudal exato | 1.19e-07 |
 | Correlação bisserial de postos | 1.000000 |
 
 As regras foram aplicadas de forma conservadora; menções isoladas não foram consideradas evidência suficiente.
