@@ -1,0 +1,20 @@
+<script>
+  (() => {
+    try {
+      const languageKey = "privacy-site-language";
+      const themeKey = "privacy-site-theme";
+      const browserLanguage = (navigator.language || "").toLowerCase();
+      const language = localStorage.getItem(languageKey) ||
+        (browserLanguage.startsWith("en") ? "en-US" : "pt-BR");
+      const preference = localStorage.getItem(themeKey) || "auto";
+      const dark = window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const theme = preference === "auto" ? (dark ? "dark" : "light") : preference;
+      document.documentElement.lang = language === "en-US" ? "en-US" : "pt-BR";
+      document.documentElement.dataset.themePreference = preference;
+      document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
+      document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light";
+    } catch (error) {
+    }
+  })();
+</script>

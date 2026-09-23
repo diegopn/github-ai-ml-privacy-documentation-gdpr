@@ -1,0 +1,356 @@
+{
+  "protocol_version": "topic-expanded-partitioned-2026-09",
+  "created_start": "2008-01-01",
+  "created_end": "2018-05-24",
+  "gdpr_date": "2018-05-25T00:00:00Z",
+  "topics": ["artificial-intelligence", "deep-learning", "machine-learning", "deep-neural-network", "reinforcement-learning", "computer-vision", "image-processing", "neural-network", "image-classification", "convolutional-neural-networks", "object-detection", "machine-intelligence", "natural-language-processing", "nlp", "large-language-model", "large-language-models", "llm", "transformer", "transformers", "generative-ai", "diffusion", "multimodal", "retrieval-augmented-generation", "ai-agents"],
+  "min_stars": 500,
+  "min_issues": 100,
+  "min_activity_months": 24,
+  "api_search_interval_seconds": 2.2000000000000002,
+  "api_max_results_per_query": 1000,
+  "topic_searches": [
+    {
+      "topic": "artificial-intelligence",
+      "partitions": [
+        {
+          "query": "is:public topic:artificial-intelligence stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 137,
+          "pages": 2,
+          "downloaded": 137
+        }
+      ],
+      "downloaded": 137
+    },
+    {
+      "topic": "deep-learning",
+      "partitions": [
+        {
+          "query": "is:public topic:deep-learning stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 678,
+          "pages": 7,
+          "downloaded": 678
+        }
+      ],
+      "downloaded": 678
+    },
+    {
+      "topic": "machine-learning",
+      "partitions": [
+        {
+          "query": "is:public topic:machine-learning stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 759,
+          "pages": 8,
+          "downloaded": 759
+        }
+      ],
+      "downloaded": 759
+    },
+    {
+      "topic": "deep-neural-network",
+      "partitions": [
+        {
+          "query": "is:public topic:deep-neural-network stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 3,
+          "pages": 1,
+          "downloaded": 3
+        }
+      ],
+      "downloaded": 3
+    },
+    {
+      "topic": "reinforcement-learning",
+      "partitions": [
+        {
+          "query": "is:public topic:reinforcement-learning stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 116,
+          "pages": 2,
+          "downloaded": 116
+        }
+      ],
+      "downloaded": 116
+    },
+    {
+      "topic": "computer-vision",
+      "partitions": [
+        {
+          "query": "is:public topic:computer-vision stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 212,
+          "pages": 3,
+          "downloaded": 212
+        }
+      ],
+      "downloaded": 212
+    },
+    {
+      "topic": "image-processing",
+      "partitions": [
+        {
+          "query": "is:public topic:image-processing stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 133,
+          "pages": 2,
+          "downloaded": 133
+        }
+      ],
+      "downloaded": 133
+    },
+    {
+      "topic": "neural-network",
+      "partitions": [
+        {
+          "query": "is:public topic:neural-network stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 154,
+          "pages": 2,
+          "downloaded": 154
+        }
+      ],
+      "downloaded": 154
+    },
+    {
+      "topic": "image-classification",
+      "partitions": [
+        {
+          "query": "is:public topic:image-classification stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 26,
+          "pages": 1,
+          "downloaded": 26
+        }
+      ],
+      "downloaded": 26
+    },
+    {
+      "topic": "convolutional-neural-networks",
+      "partitions": [
+        {
+          "query": "is:public topic:convolutional-neural-networks stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 85,
+          "pages": 1,
+          "downloaded": 85
+        }
+      ],
+      "downloaded": 85
+    },
+    {
+      "topic": "object-detection",
+      "partitions": [
+        {
+          "query": "is:public topic:object-detection stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 62,
+          "pages": 1,
+          "downloaded": 62
+        }
+      ],
+      "downloaded": 62
+    },
+    {
+      "topic": "machine-intelligence",
+      "partitions": [
+        {
+          "query": "is:public topic:machine-intelligence stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 3,
+          "pages": 1,
+          "downloaded": 3
+        }
+      ],
+      "downloaded": 3
+    },
+    {
+      "topic": "natural-language-processing",
+      "partitions": [
+        {
+          "query": "is:public topic:natural-language-processing stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 129,
+          "pages": 2,
+          "downloaded": 129
+        }
+      ],
+      "downloaded": 129
+    },
+    {
+      "topic": "nlp",
+      "partitions": [
+        {
+          "query": "is:public topic:nlp stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 181,
+          "pages": 2,
+          "downloaded": 181
+        }
+      ],
+      "downloaded": 181
+    },
+    {
+      "topic": "large-language-model",
+      "partitions": [
+        {
+          "query": "is:public topic:large-language-model stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 1,
+          "pages": 1,
+          "downloaded": 1
+        }
+      ],
+      "downloaded": 1
+    },
+    {
+      "topic": "large-language-models",
+      "partitions": [
+        {
+          "query": "is:public topic:large-language-models stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 4,
+          "pages": 1,
+          "downloaded": 4
+        }
+      ],
+      "downloaded": 4
+    },
+    {
+      "topic": "llm",
+      "partitions": [
+        {
+          "query": "is:public topic:llm stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 30,
+          "pages": 1,
+          "downloaded": 30
+        }
+      ],
+      "downloaded": 30
+    },
+    {
+      "topic": "transformer",
+      "partitions": [
+        {
+          "query": "is:public topic:transformer stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 13,
+          "pages": 1,
+          "downloaded": 13
+        }
+      ],
+      "downloaded": 13
+    },
+    {
+      "topic": "transformers",
+      "partitions": [
+        {
+          "query": "is:public topic:transformers stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 7,
+          "pages": 1,
+          "downloaded": 7
+        }
+      ],
+      "downloaded": 7
+    },
+    {
+      "topic": "generative-ai",
+      "partitions": [
+        {
+          "query": "is:public topic:generative-ai stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 4,
+          "pages": 1,
+          "downloaded": 4
+        }
+      ],
+      "downloaded": 4
+    },
+    {
+      "topic": "diffusion",
+      "partitions": [
+        {
+          "query": "is:public topic:diffusion stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 0,
+          "pages": 0,
+          "downloaded": 0
+        }
+      ],
+      "downloaded": 0
+    },
+    {
+      "topic": "multimodal",
+      "partitions": [
+        {
+          "query": "is:public topic:multimodal stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 3,
+          "pages": 1,
+          "downloaded": 3
+        }
+      ],
+      "downloaded": 3
+    },
+    {
+      "topic": "retrieval-augmented-generation",
+      "partitions": [
+        {
+          "query": "is:public topic:retrieval-augmented-generation stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 0,
+          "pages": 0,
+          "downloaded": 0
+        }
+      ],
+      "downloaded": 0
+    },
+    {
+      "topic": "ai-agents",
+      "partitions": [
+        {
+          "query": "is:public topic:ai-agents stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
+          "created_start": "2008-01-01",
+          "created_end": "2018-05-24",
+          "total_count": 14,
+          "pages": 1,
+          "downloaded": 14
+        }
+      ],
+      "downloaded": 14
+    }
+  ],
+  "unique_candidates": 1614,
+  "selected_repositories": 474,
+  "generated_at": "2026-09-23T01:36:49Z",
+  "selection_run_id": "20260923T012031-659227",
+  "sample_sha256": "ac77dbe70022b479af11f38dbc689b7e6691863f03f9c58a94ae8d9285243bf2",
+  "sample_rows": 474
+}
