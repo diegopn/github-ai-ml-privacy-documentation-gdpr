@@ -39,6 +39,7 @@ website:
 format:
   html:
     lang: pt-BR
+    body-classes: page-shell
     theme: cosmo
     css: site/styles.css
     toc: true
