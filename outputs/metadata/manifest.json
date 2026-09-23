@@ -1,16 +1,19 @@
 {
-  "generated_at": "2026-09-17T19:24:13Z",
-  "project_name": "github-ai-ml-privacy-documentation-gdpr",
+  "generated_at": "2026-09-23T02:08:28Z",
+  "project_name": "github-ai-ml-privacy-documentation-gdpr-expanded",
   "input_csv": "inputs/final/selected_repositories.csv",
-  "input_sha256": "0247427ae2850acc5302f94b585e765434b3f339db54f9e51baa00012583b25b",
-  "input_rows": 328,
-  "dataset_rows": 328,
-  "complete_pairs": 328,
+  "input_sha256": "ac77dbe70022b479af11f38dbc689b7e6691863f03f9c58a94ae8d9285243bf2",
+  "input_rows": 474,
+  "dataset_rows": 474,
+  "complete_pairs": 474,
   "incomplete_pairs": 0,
   "significance_level": 0.050000000000000003,
   "classification_rule_version": "semantic-conservative-2026-09-c1-c4",
-  "collector_protocol_version": "open-source-no-size-limit-2026-09",
+  "collector_protocol_version": "open-source-no-size-limit-expanded-topics-2026-09",
+  "source_collector_protocol_versions": "open-source-no-size-limit-expanded-topics-2026-09",
   "wilcoxon_method": "exact-two-sided-average-ranks-zero-differences-excluded",
   "sample_requires_osi_approved_license": true,
-  "files": ["inputs/final/selected_repositories.csv", "inputs/raw/repository_results.jsonl", "outputs/tables/sample_used.csv", "outputs/tables/final_privacy_gdpr_dataset.csv", "outputs/tables/positive_evidence.csv", "outputs/tables/statistics_r.csv", "outputs/tables/criterion_frequencies.csv", "outputs/tables/d1_transition_table.csv", "outputs/figures/d1_pre_post.png", "outputs/figures/criteria_post_gdpr.png", "outputs/metadata/statistics.json", "outputs/metadata/statistics_r.rds", "outputs/metadata/sample_used.sha256.txt", "outputs/metadata/session_info.txt", "outputs/reports/statistical_results.md", "outputs/reports/privacy_documentation_experiment_gdpr.md", "outputs/metadata/manifest.json"]
+  "selection_topics": ["artificial-intelligence", "deep-learning", "machine-learning", "deep-neural-network", "reinforcement-learning", "computer-vision", "image-processing", "neural-network", "image-classification", "convolutional-neural-networks", "object-detection", "machine-intelligence", "natural-language-processing", "nlp", "large-language-model", "large-language-models", "llm", "transformer", "transformers", "generative-ai", "diffusion", "multimodal", "retrieval-augmented-generation", "ai-agents"],
+  "selection_audit": "outputs/metadata/selection_search_manifest.json",
+  "files": ["inputs/final/selected_repositories.csv", "inputs/raw/repository_results.jsonl", "outputs/tables/sample_used.csv", "outputs/tables/final_privacy_gdpr_dataset.csv", "outputs/tables/positive_evidence.csv", "outputs/tables/statistics_r.csv", "outputs/tables/criterion_frequencies.csv", "outputs/tables/d1_transition_table.csv", "outputs/figures/d1_pre_post.png", "outputs/figures/criteria_post_gdpr.png", "outputs/metadata/statistics.json", "outputs/metadata/statistics_r.rds", "outputs/metadata/sample_used.sha256.txt", "outputs/metadata/session_info.txt", "outputs/metadata/selection_search_manifest.json", "outputs/reports/statistical_results.md", "outputs/reports/privacy_documentation_experiment_gdpr.md", "outputs/metadata/manifest.json"]
 }

@@ -1,15 +1,19 @@
 ---
 title: "Experimento de documentação de privacidade"
-subtitle: "Projetos open source de IA/ML observados antes e depois do início da aplicação da GDPR"
+subtitle: "Projetos open source de IA/ML com vocabulário de descoberta ampliado"
 ---
 
 ```{r}
-# Carrega os artefatos versionados usados pela página.
 stats <- jsonlite::read_json("outputs/metadata/statistics.json", simplifyVector = FALSE)
+settings <- yaml::read_yaml("settings.yml")
 sample <- read.csv("inputs/final/selected_repositories.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
 dataset <- read.csv("outputs/tables/final_privacy_gdpr_dataset.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
+selection_topics <- as.character(unlist(settings$selection$topics, use.names = FALSE))
+topic_values <- unlist(strsplit(as.character(sample$ai_ml_match_topics), "\\s*;\\s*"), use.names = FALSE)
+topic_values <- topic_values[nzchar(topic_values)]
+topic_counts <- sort(table(topic_values), decreasing = TRUE)
+selection_audit_available <- file.exists("outputs/metadata/selection_search_manifest.json")
 
-# Mantém p-valores em decimal fixo com vírgula.
 fmt_p <- function(value) formatC(as.numeric(value), format = "f", digits = 6L, decimal.mark = ",", big.mark = ".")
 r1 <- stats$rq1_mcnemar
 r2 <- stats$rq2_wilcoxon
@@ -23,10 +27,26 @@ pre_d1 <- as.integer(r1$pre_ones)
 post_d1 <- as.integer(r1$post_ones)
 pre_score <- as.numeric(r2$pre_mean)
 post_score <- as.numeric(r2$post_mean)
+site_data <- list(
+  topic_count = length(selection_topics),
+  sample_rows = nrow(sample),
+  complete_pairs = complete_pairs,
+  pre_d1 = pre_d1,
+  post_d1 = post_d1,
+  pre_score = pre_score,
+  post_score = post_score,
+  mcnemar_p = as.numeric(r1$exact_mcnemar_p_two_sided),
+  wilcoxon_p = as.numeric(w$p_two_sided_exact),
+  selection_audit_available = selection_audit_available
+)
 
 ```
 
-::: {.hero-note}
+```{r, echo=FALSE, results='asis'}
+cat("<script>window.privacySiteData=", jsonlite::toJSON(site_data, auto_unbox = TRUE, digits = 16), ";</script>")
+```
+
+::: {.hero-note #hero-note}
 Esta página reúne a amostra, os documentos recuperados, as evidências
 textuais, a metodologia, os resultados estatísticos e as instruções de
 reprodução. Os valores exibidos são gerados diretamente dos artefatos
@@ -59,21 +79,43 @@ PDE Score médio pós-GDPR
 
 ## Resultado principal {#resultado-principal}
 
+::: {data-i18n-template="main-result"}
 No período pré-GDPR, `r pre_d1` de `r complete_pairs` repositórios
 apresentaram evidência documental de privacidade (D1=1). No período pós-GDPR,
 foram `r post_d1` repositórios. O teste exato de McNemar bicaudal resultou em
 `r fmt_p(r1$exact_mcnemar_p_two_sided)`.
+:::
 
+::: {data-i18n-template="score-result"}
 O PDE Score médio passou de `r sprintf("%.3f", pre_score)` para
 `r sprintf("%.3f", post_score)`. O teste exato de Wilcoxon pareado resultou em
 `r fmt_p(w$p_two_sided_exact)`.
+:::
+
+## Cobertura do vocabulário {#cobertura-vocabulario}
+
+::: {data-i18n-template="vocabulary-coverage"}
+A descoberta foi ampliada de três tópicos-base para `r length(selection_topics)`
+tópicos, mantendo os critérios de elegibilidade e a análise documental. A
+expansão inclui subdomínios tradicionais e termos recentes de IA/ML; um tópico
+continua sendo apenas um sinal de descoberta, e não uma prova automática de
+escopo técnico.
+:::
+
+```{r}
+topic_table <- data.frame(
+  Tópico = names(topic_counts),
+  Repositórios = as.integer(topic_counts),
+  check.names = FALSE
+)
+knitr::kable(topic_table, format = "html", caption = "Tópicos presentes na amostra congelada")
+```
 
 ## Resultados detalhados {#resultados}
 
 ### Presença documental (D1)
 
 ```{r, echo=FALSE, fig.width=7, fig.height=4}
-# Usa as contagens de D1 já calculadas no resumo estatístico.
 barplot(
   c(as.numeric(r1$pre_ones), as.numeric(r1$post_ones)),
   names.arg = c("Pré-GDPR", "Pós-GDPR"),
@@ -95,7 +137,6 @@ barplot(
 ### PDE Score
 
 ```{r, echo=FALSE, fig.width=7, fig.height=4}
-# Mostra a frequência dos critérios no período pós-GDPR.
 barplot(
   post_frequency,
   names.arg = codes,
@@ -128,7 +169,6 @@ knitr::kable(criteria, format = "html", caption = "Frequência de C1 a C7")
 ### Transições observadas em D1
 
 ```{r}
-# Resume as quatro transições possíveis de D1.
 has_pair <- dataset$pre_D1 != "" & dataset$post_D1 != ""
 transition <- table(
   factor(dataset$pre_D1[has_pair], levels = c("0", "1")),
@@ -143,61 +183,100 @@ knitr::kable(as.data.frame.matrix(transition), format = "html", caption = "Matri
 
 ### Amostra
 
+::: {data-i18n-template="sample-description"}
 A amostra contém `r nrow(sample)` repositórios com licença identificada por
-SPDX e aprovada pela OSI. O arquivo usado pelo pipeline está disponível em
-[selected_repositories.csv](inputs/final/selected_repositories.csv).
+SPDX e aprovada pela OSI.
+:::
+
+::: {data-i18n="sampleFilesText"}
+O arquivo usado pelo pipeline está disponível em
+[selected_repositories.csv](inputs/final/selected_repositories.csv). O
+vocabulário configurado está em
+[ai_ml_topics_used.csv](inputs/reference/ai_ml_topics_used.csv).
+:::
 
 ### Arquivos para inspeção
 
+::: {data-i18n="inspectionIntro"}
 Os registros detalhados não são repetidos na página. A relação completa dos
 repositórios, documentos, classificações, evidências e metadados permanece
 disponível nos arquivos versionados abaixo:
+:::
 
+::: {data-i18n="dataLinksList"}
 - [Dataset final completo](outputs/tables/final_privacy_gdpr_dataset.csv)
 - [Amostra utilizada](outputs/tables/sample_used.csv)
 - [Evidências positivas](outputs/tables/positive_evidence.csv)
 - [Checkpoint bruto JSONL](inputs/raw/repository_results.jsonl)
 - [Manifesto da execução](outputs/metadata/manifest.json)
+:::
+::: {data-i18n-template="selection-manifest"}
+`r if (selection_audit_available) "[Manifesto das consultas de seleção](outputs/metadata/selection_search_manifest.json)" else "O manifesto das consultas de seleção será criado na próxima seleção online."`
+:::
 
 ## Metodologia {#metodologia}
 
 ### Desenho
 
+::: {data-i18n="designText"}
 O estudo compara o mesmo conjunto de repositórios em dois snapshots
 históricos: o último commit até 24 de maio de 2018 e o último commit até 30
 de junho de 2026. A unidade de análise é o repositório público de IA/ML.
+:::
 
 ```{mermaid}
 flowchart LR
-  A[Busca por tópicos IA/ML] --> B[Filtros de seleção]
-  B --> C[Amostra congelada]
-  C --> D[Snapshot pré-GDPR]
-  C --> E[Snapshot pós-GDPR]
-  D --> F[Classificação C1-C7 e D1]
-  E --> F
-  F --> G[McNemar e Wilcoxon]
-  G --> H[Dataset, relatórios e site]
+  A[Busca por 24 tópicos IA/ML] --> B[Particionamento temporal até 1.000 resultados]
+  B --> C[Filtros de seleção preservados]
+  C --> D[Amostra congelada]
+  D --> E[Snapshot pré-GDPR]
+  D --> F[Snapshot pós-GDPR]
+  E --> G[Classificação C1-C7 e D1]
+  F --> G
+  G --> H[McNemar e Wilcoxon]
+  H --> I[Dataset, relatórios e site]
 ```
 
 ### Seleção da amostra
 
-O seletor consulta os tópicos-base `artificial-intelligence`, `deep-learning`
-e `machine-learning`. Em seguida, aplica os critérios de visibilidade pública,
-licença SPDX/OSI aprovada, ausência de fork e arquivamento, criação anterior a
-25 de maio de 2018, pelo menos 500 estrelas, pelo menos 100 issues reais,
-atividade mínima de 24 meses e atividade antes e depois da data de referência.
+::: {data-i18n-template="selection-description"}
+O seletor consulta `r length(selection_topics)` tópicos configurados em
+`settings.yml`, cobrindo os tópicos-base, subdomínios como visão computacional,
+processamento de linguagem natural e detecção de objetos, e extensões como
+LLM, transformers, IA generativa, difusão, multimodalidade, RAG e agentes. Em
+seguida, aplica os mesmos critérios de visibilidade pública, licença SPDX/OSI
+aprovada, ausência de fork e arquivamento, criação anterior a 25 de maio de
+2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade mínima de
+24 meses e atividade antes e depois da data de referência.
+:::
 
-A seleção completa pode ser executada por `scripts/select_sample.R`. O CSV usado nos
-resultados publicados permanece versionado para que os números do artigo não
-mudem quando a API do GitHub atualizar seus metadados.
+::: {data-i18n="partitionText"}
+As consultas são particionadas por data de criação quando a contagem estimada
+se aproxima do limite de 1.000 resultados da Search API. As partições e páginas
+baixadas ficam registradas no manifesto de seleção.
+:::
+
+::: {data-i18n-template="selection-manifest"}
+`r if (selection_audit_available) "O manifesto desta execução está disponível nos artefatos." else "O manifesto será produzido quando a seleção ampliada for executada com um token do GitHub."`
+:::
+
+::: {data-i18n="selectionAfter"}
+A primeira etapa é `Rscript main.R --select`: ela cria uma amostra nova e coleta
+os snapshots históricos desses repositórios. Depois, `Rscript main.R --analyze`
+valida a coleta, refaz a análise offline e gera o site. O comando
+`Rscript main.R --run` executa o processo inteiro do início ao fim.
+:::
 
 ### Documentação e critérios
 
+::: {data-i18n="documentationIntro"}
 São analisados README de raiz e documentos textuais cujos nomes ou caminhos
 indicam privacidade, segurança, proteção de dados, termos, consentimento,
 retenção ou conformidade. D1 indica evidência documental contextualizada. O
 PDE Score soma sete critérios:
+:::
 
+::: {data-i18n="criteriaList"}
 1. dados pessoais;
 2. finalidade do tratamento;
 3. base legal;
@@ -205,79 +284,122 @@ PDE Score soma sete critérios:
 5. retenção ou exclusão;
 6. compartilhamento ou transferência;
 7. proteção contra vazamento ou acesso não autorizado.
+:::
 
+::: {data-i18n="documentationNegative"}
 Menções isoladas, bibliografia, testes, exemplos, dependências e listas de
 links não são suficientes para marcar um critério.
+:::
 
 ### Estatística
 
+::: {data-i18n="statisticsText"}
 Para D1, o pipeline calcula o teste exato de McNemar bicaudal. Para o PDE
 Score, calcula o teste exato de Wilcoxon pareado, excluindo diferenças zero e
 usando postos médios em empates. O nível de significância adotado é
 $\alpha=0{,}05$.
+:::
 
 ::: {.pvalue-note}
+::: {data-i18n-template="pvalue-explanation"}
 O *p-value* é a probabilidade de observar um resultado tão extremo quanto o
 obtido, ou mais extremo, supondo que a hipótese nula (H0) seja verdadeira. Com
 $\alpha=0{,}05$, um *p-value* menor que α leva à rejeição de H0; um valor maior
 ou igual a α não permite rejeitá-la. Essa decisão não prova H1 nem transforma
 H0 em uma verdade automática.
-
-Neste estudo, o *p-value* exato de McNemar foi `r fmt_p(r1$exact_mcnemar_p_two_sided)`
-e o de Wilcoxon foi `r fmt_p(w$p_two_sided_exact)`. Como ambos são menores que
-0,05, rejeitamos H0 nos dois testes ao nível de significância adotado. A
-interpretação deve considerar também as contagens, o tamanho das diferenças e
-as limitações do desenho observacional.
 :::
 
+::: {data-i18n-template="pvalue-result"}
+Neste estudo, o *p-value* exato de McNemar foi `r fmt_p(r1$exact_mcnemar_p_two_sided)`
+e o de Wilcoxon foi `r fmt_p(w$p_two_sided_exact)`. A decisão estatística deve
+ser atualizada junto com as contagens quando uma nova amostra for gerada e deve
+considerar o tamanho das diferenças e as limitações do desenho observacional.
+:::
+:::
+
+::: {data-i18n="resultLimitations"}
 Os resultados medem evidência documental versionada. Eles não constituem
 auditoria jurídica nem permitem atribuir causalidade exclusiva à GDPR.
+:::
 
 ## Reprodução {#reproducao}
 
 ### Requisitos
 
+::: {data-i18n="requirementsList"}
 - R 4.5 ou superior;
 - pacote `jsonlite` para o pipeline;
 - `knitr`, `rmarkdown` e Quarto para renderizar este site;
 - `yaml` para ler `settings.yml`;
 - `curl` para novas chamadas à API do GitHub;
 - token `GITHUB_TOKEN` somente quando uma nova coleta for necessária.
-
-### Análise com os dados versionados
-
-Com o checkpoint já disponível, a análise não precisa acessar a API:
-
-```bash
-Rscript scripts/analysis.R
-```
-
-Isso recria o dataset, as estatísticas, as evidências, os gráficos e os
-relatórios em `outputs/`.
+:::
 
 ### Pipeline completo
 
-Para reutilizar a amostra congelada e coletar apenas registros ausentes:
-
-```bash
-Rscript scripts/run_pipeline.R --workers 1
-```
-
-Para gerar uma nova amostra usando a API:
+::: {data-i18n="completePipelineIntro"}
+Para executar todo o fluxo do zero — nova seleção, coletas, análise e site:
+:::
 
 ```bash
 export GITHUB_TOKEN="seu-token"
-Rscript scripts/run_pipeline.R --select --workers 1
+Rscript main.R --run
 ```
 
-O seletor também pode ser executado isoladamente:
+::: {data-i18n="newSampleIntro"}
+Para gerar uma nova amostra e coletar os dois snapshots históricos:
+:::
 
 ```bash
-Rscript scripts/select_sample.R --output inputs/final/selected_repositories.csv
+Rscript main.R --select
+```
+
+::: {data-i18n="analyzeIntro"}
+Depois de `--select` terminar, para executar a análise offline e gerar o site:
+:::
+
+```bash
+Rscript main.R --analyze
+```
+
+::: {data-i18n="statusText"}
+O `main.R` mostra o progresso por etapa e grava o estado em
+`outputs/metadata/run_status.json`. Durante a seleção, informa tópico, páginas
+e total baixado; durante a coleta, informa pares completos, incompletos e estimativa
+de tempo restante. O intervalo normal da API não gera mensagens repetitivas;
+limites reais do GitHub são indicados com a previsão da próxima tentativa.
+:::
+
+::: {data-i18n="stagedModeNote"}
+O modo `--analyze` exige a coleta completa da amostra atual, produzida por
+`--select` ou `--run`. O pipeline oferece apenas `--run`, `--select`,
+`--analyze` e `--help`.
+:::
+
+::: {data-i18n="helpIntro"}
+Para consultar a ajuda do pipeline:
+:::
+
+```bash
+Rscript main.R --help
 ```
 
 ### Artefatos
 
+::: {data-i18n="artifactsIntro"}
 O repositório mantém a amostra, o checkpoint bruto, o dataset final, as
 evidências positivas, as estatísticas, os gráficos e os relatórios. O arquivo
 `outputs/metadata/manifest.json` registra os hashes e versões usados na execução.
+:::
+
+## Referências da expansão {#referencias-expansao}
+
+::: {data-i18n="referencesText"}
+As referências adicionais incorporadas ao vocabulário e à discussão de validade
+estão em [literature_expanded.md](inputs/reference/literature_expanded.md),
+incluindo Gonzalez et al. (2020), Openja et al. (2024), Latendresse et al.
+(2024), De Martino et al. (2025), Yang et al. (2023), Biswas et al. (2019) e
+Kalliamvakou et al. (2014).
+:::
+
+<script src="site/site.js"></script>

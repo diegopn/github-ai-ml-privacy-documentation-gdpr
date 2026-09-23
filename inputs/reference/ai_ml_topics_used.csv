@@ -1,4 +1,25 @@
 topic_label,source,role_in_strategy
-artificial-intelligence,"Gonzalez, Zimmermann and Nagappan (2020)",base topic
-deep-learning,"Gonzalez, Zimmermann and Nagappan (2020)",base topic
-machine-learning,"Gonzalez, Zimmermann and Nagappan (2020)",base topic
+artificial-intelligence,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",base topic
+deep-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",base topic
+machine-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",base topic
+deep-neural-network,"Openja et al. (2024)",expanded subdomain
+reinforcement-learning,"Openja et al. (2024)",expanded subdomain
+computer-vision,"Openja et al. (2024)",expanded subdomain
+image-processing,"Openja et al. (2024)",expanded subdomain
+neural-network,"Openja et al. (2024)",expanded subdomain
+image-classification,"Openja et al. (2024)",expanded subdomain
+convolutional-neural-networks,"Openja et al. (2024)",expanded subdomain
+object-detection,"Openja et al. (2024)",expanded subdomain
+machine-intelligence,"Openja et al. (2024)",expanded subdomain
+natural-language-processing,"Openja et al. (2024)",expanded subdomain
+nlp,"Openja et al. (2024)",expanded alias
+large-language-model,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+large-language-models,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+llm,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+transformer,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+transformers,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+generative-ai,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+diffusion,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+multimodal,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+retrieval-augmented-generation,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension
+ai-agents,"explicit temporal extension from msr-oss-privacy-legislation-ai-ml-gh-hf",modern extension

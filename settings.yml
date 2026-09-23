@@ -1,23 +1,69 @@
 project:
-  name: github-ai-ml-privacy-documentation-gdpr
-  description: Experimento de documentação de privacidade em repositórios públicos de IA/ML
+  name: github-ai-ml-privacy-documentation-gdpr-expanded
+  description: Experimento de documentação de privacidade em repositórios públicos de IA/ML com descoberta por tópicos ampliada
 paths:
   sample: inputs/final/selected_repositories.csv
   sample_hash: inputs/final/published_sample.sha256.txt
   raw_checkpoint: inputs/raw/repository_results.jsonl
   reference_topics: inputs/reference/ai_ml_topics_used.csv
   reference_spdx: inputs/reference/osi_approved_spdx_ids.txt
+  selection_audit: outputs/metadata/selection_search_manifest.json
+  selection_state: outputs/metadata/selection_run_state.json
+  selection_progress: outputs/metadata/selection_progress
   output_root: outputs
 analysis:
   alpha: 0.05
   pre_until: "2018-05-24T23:59:59Z"
   post_until: "2026-06-30T23:59:59Z"
+api:
+  github_base: "https://api.github.com"
+  github_graphql_base: "https://api.github.com/graphql"
+  raw_base: "https://raw.githubusercontent.com"
+  user_agent: "github-ai-ml-privacy-research/expanded-topics"
+  connect_timeout_seconds: 30
+  timeout_seconds: 45
+  max_attempts: 4
+  retry_base_seconds: 2
+  retry_max_seconds: 60
+  retry_budget_seconds: 180
+  max_rate_wait_seconds: 7200
+  search_interval_seconds: 2.2
+  core_interval_seconds: 0.05
+  raw_interval_seconds: 0.05
+  graphql_interval_seconds: 0.1
+  lock_timeout_seconds: 30
+  lock_stale_seconds: 300
+  rate_state_path: "outputs/metadata/github_api_rate_state.json"
 selection:
   gdpr_date: "2018-05-25T00:00:00Z"
+  search_start_date: "2008-01-01"
+  max_results_per_query: 1000
   min_stars: 500
   min_issues: 100
   min_activity_months: 24
+  progress_update_interval_seconds: 30
   topics:
     - artificial-intelligence
     - deep-learning
     - machine-learning
+    - deep-neural-network
+    - reinforcement-learning
+    - computer-vision
+    - image-processing
+    - neural-network
+    - image-classification
+    - convolutional-neural-networks
+    - object-detection
+    - machine-intelligence
+    - natural-language-processing
+    - nlp
+    - large-language-model
+    - large-language-models
+    - llm
+    - transformer
+    - transformers
+    - generative-ai
+    - diffusion
+    - multimodal
+    - retrieval-augmented-generation
+    - ai-agents

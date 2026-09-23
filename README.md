@@ -1,30 +1,29 @@
-# Experimento de documentação de privacidade
+# Experimento de documentação de privacidade — tópicos ampliados
 
-Este repositório reúne, em R, a seleção da amostra, a coleta histórica, a
+Este projeto reúne, em R, a seleção da amostra, a coleta histórica, a
 classificação documental, a análise estatística e a publicação dos resultados
-em uma página Quarto. A unidade de análise é o mesmo repositório público de
-IA/ML observado em dois snapshots:
+em uma página Quarto. A descoberta
+passa a usar 24 tópicos de IA/ML, incluindo subdomínios de visão, NLP, LLMs,
+transformers, geração, difusão, multimodalidade, RAG e agentes. A unidade de
+análise continua sendo o mesmo repositório público observado em dois snapshots:
 
 - pré-GDPR: último commit até `2018-05-24T23:59:59Z`;
 - pós-GDPR: último commit até `2026-06-30T23:59:59Z`.
 
-A página pública é gerada a partir dos arquivos versionados e pode ser
-publicada no GitHub Pages pelo workflow incluído no repositório.
-A [visualização pública do experimento](https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/) está disponível no GitHub Pages.
+A página é gerada a partir dos artefatos locais e pode ser publicada pelo
+workflow incluído no repositório. Esta cópia não altera nem publica o projeto
+original.
 
 ## Estrutura
 
 ```text
 functions/
 ├── common.R                 regras, caminhos e funções compartilhadas
-├── collect.R                coleta histórica e retomada por checkpoint
+├── cli.R                    opções e etapas do pipeline
+├── collect.R                coleta histórica e checkpoint de controle
 ├── select_sample.R          seleção por tópicos e critérios do protocolo
 └── analyze.R                classificação final, dataset e estatísticas
-scripts/
-├── select_sample.R          comando para gerar ou revalidar a amostra
-├── collect.R                comando para coletar dados pendentes
-├── analysis.R               comando para repetir a análise offline
-└── run_pipeline.R           seleção opcional, coleta e análise em sequência
+main.R                       entrada única com status por etapa
 inputs/
 ├── raw/                     checkpoint bruto JSONL
 ├── final/                   amostra congelada e seu hash
@@ -35,9 +34,16 @@ outputs/
 ├── reports/                 relatórios em Markdown
 └── metadata/                JSON, RDS, manifesto e informações da sessão
 site/
-└── styles.css               estilos da página única
+├── styles.css               estilos da página única
+├── site.js                  comportamento, tema e controles acessíveis
+├── theme-init.html          tema inicial antes do carregamento da página
+└── locales/                 textos em pt-BR e en-US (JSON)
+tests/
+└── test_contracts.R         testes locais dos contratos e regras
 index.qmd                    entrada do GitHub Pages e página completa
 settings.yml                caminhos, datas, alfa e critérios configuráveis
+inputs/reference/ai_ml_topics_used.csv
+                            vocabulário e referências da expansão
 LICENSE                      licença MIT na raiz do projeto
 ```
 
@@ -64,35 +70,102 @@ O arquivo `.env` é ignorado pelo Git.
 
 ## Execução
 
-Para repetir a análise usando a amostra e o checkpoint versionados, sem acessar
-a API:
-
-```bash
-Rscript scripts/analysis.R
-```
-
-Para executar coleta pendente e análise:
-
-```bash
-Rscript scripts/run_pipeline.R --workers 1
-```
-
-Para gerar uma nova amostra pela API e depois executar o pipeline:
+O fluxo principal é centralizado em `main.R`. `--run` executa tudo do zero:
+cria uma amostra nova, faz as coletas históricas, executa a análise e renderiza
+o site:
 
 ```bash
 export GITHUB_TOKEN="seu-token"
-Rscript scripts/run_pipeline.R --select --workers 1
+Rscript main.R --run
 ```
 
-O seletor também pode ser executado isoladamente:
+O mesmo fluxo pode ser dividido em duas etapas. `--select` sempre cria uma
+amostra nova e, em seguida, coleta os dois snapshots históricos para todos os
+repositórios selecionados. Não reutiliza a amostra nem o checkpoint de uma
+execução anterior:
 
 ```bash
-Rscript scripts/select_sample.R --output inputs/final/selected_repositories.csv
+Rscript main.R --select
 ```
 
-Os caminhos padrão, o nível de significância e os critérios de seleção estão
-em `settings.yml`. O CSV em `inputs/final/` permanece versionado para congelar
-a entrada usada nos resultados publicados.
+Depois que `--select` terminar com sucesso, `--analyze` valida que a coleta
+pertence à amostra recém-criada, refaz a análise offline e gera o site. Esta
+etapa não chama a API do GitHub:
+
+```bash
+Rscript main.R --analyze
+```
+
+Se a seleção ou a coleta falhar, `--analyze` interrompe antes de produzir
+resultados com entradas incompletas ou desatualizadas. `--analyze` depende da
+execução bem-sucedida de `--select` ou `--run` para a amostra atual.
+
+O terminal identifica cada etapa e mostra sua duração. Na seleção, informa o
+tópico atual, páginas baixadas e total de repositórios únicos; na coleta,
+mostra quantos pares estão completos ou incompletos e uma estimativa do tempo
+restante. O estado também fica em `outputs/metadata/run_status.json`, incluindo
+a etapa atual e o PID da execução. Um lock impede duas execuções do mesmo
+projeto de sobrescreverem checkpoints ou resultados.
+
+A coleta é deliberadamente serial para manter a ordem, a reprodutibilidade e o
+limite da API do GitHub. O intervalo normal entre chamadas é aplicado sem
+mensagens repetidas; quando o GitHub impõe um limite, o terminal informa a
+próxima tentativa estimada e atualiza a espera em intervalos. O estado do
+limitador fica em `outputs/metadata/github_api_rate_state.json` (ignorado pelo
+Git). As chamadas registram os headers de limite sem armazenar o token e não
+repetem indefinidamente erros 403 que não sejam de rate limit. Quando o GitHub
+informa um limite temporário, o mesmo pedido aguarda o reset e é tentado
+novamente dentro do limite configurado. Se não for possível aguardar com
+segurança, a etapa falha sem trocar uma nova amostra pela anterior. Uma nova
+execução de `--select` começa do zero.
+
+As únicas opções do `main.R` são `--run`, `--select`, `--analyze` e `--help`.
+Sem opção, o programa executa o mesmo fluxo completo de `--run`. Não há modo de
+continuação: cada `--select` inicia uma seleção e coleta novas.
+
+Para consultar a ajuda:
+
+```bash
+Rscript main.R --help
+```
+
+Os testes contratuais ficam separados do código operacional e não fazem
+chamadas à API. Quando quiser executá-los manualmente:
+
+```bash
+Rscript tests/test_contracts.R
+```
+
+`main.R` é a única entrada operacional. Os caminhos padrão, o nível de
+significância, os critérios de seleção e os parâmetros de retry estão em
+`settings.yml`. A cada nova seleção, o hash de
+`inputs/final/selected_repositories.csv` é atualizado em
+`inputs/final/published_sample.sha256.txt`. O estado transitório da seleção fica
+em `outputs/metadata/selection_run_state.json` e impede que uma seleção que
+falhou seja confundida com a amostra anterior. Os candidatos e avaliações
+parciais ficam em `outputs/metadata/selection_progress/` até a seleção terminar.
+
+O seletor de idioma carrega `site/locales/pt-BR.json` ou
+`site/locales/en-US.json`; o JavaScript cuida apenas do comportamento e da
+aplicação dos textos. Os JSON são usados diretamente pelo site estático, sem
+compilação gettext ou arquivos `.po`.
+
+## Escopo e regras preservadas
+
+A expansão altera a primeira camada de descoberta. Ela não relaxa os critérios
+de elegibilidade: repositório público, não fork, não arquivado, criado antes de
+25/05/2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade de
+no mínimo 24 meses, atividade nos dois períodos históricos e licença SPDX/OSI
+aprovada.
+
+Cada consulta da Search API é particionada por data de criação quando necessário
+para respeitar o limite de 1.000 resultados. O manifesto
+`outputs/metadata/selection_search_manifest.json` registra as partições,
+contagens e páginas baixadas. A contagem de issues reais é feita em lotes pela
+GraphQL API, reduzindo chamadas individuais à Search API; o resultado continua
+sendo verificado junto aos demais critérios antes da aprovação. Tópicos são
+sinais de descoberta, não prova automática de que todo repositório seja um
+projeto de IA/ML.
 
 ## Site
 
@@ -113,6 +186,12 @@ no GitHub Pages após atualizações na branch principal. A página única apres
 os resultados, a amostra, os documentos recuperados, as evidências positivas,
 os arquivos de saída, a metodologia e as instruções de reprodução.
 
+A página identifica automaticamente o idioma preferido do navegador, oferecendo
+português do Brasil e inglês dos Estados Unidos no seletor do cabeçalho. O tema
+claro/escuro acompanha a preferência do sistema por padrão; o controle de tema
+permite fixar claro, escuro ou automático no navegador. Essas preferências são
+locais e não alteram os dados, os cálculos ou os artefatos do experimento.
+
 ## Resultados e rastreabilidade
 
 O projeto preserva:
@@ -122,7 +201,8 @@ O projeto preserva:
 - o dataset final;
 - as evidências positivas com SHA, arquivo e trecho textual;
 - estatísticas, tabelas, gráficos e relatórios;
-- o manifesto com versões, hashes e método estatístico.
+- o manifesto com versões, hashes, método estatístico e tópicos usados;
+- o manifesto das consultas de descoberta e o status da execução.
 
 D1 indica evidência documental contextualizada. O PDE Score soma C1 a C7:
 dados pessoais, finalidade, base legal, direitos, retenção ou exclusão,
@@ -133,3 +213,17 @@ constitui auditoria jurídica.
 
 Este projeto é distribuído sob a [Licença MIT](LICENSE), mantida no arquivo
 `LICENSE` da raiz.
+
+## Referências da expansão
+
+- Gonzalez, Zimmermann e Nagappan (2020), *The State of the ML-universe* —
+  [DOI 10.1145/3379597.3387473](https://doi.org/10.1145/3379597.3387473).
+- Openja et al. (2024), *An Empirical Study of Testing Machine Learning in the
+  Wild* — [DOI 10.1145/3680463](https://doi.org/10.1145/3680463).
+- Latendresse et al. (2024), *An Exploratory Study on Machine Learning Model
+  Management* — [DOI 10.1145/3688841](https://doi.org/10.1145/3688841).
+- De Martino et al. (2025), *Into the ML-Universe* —
+  [DOI 10.1016/j.jss.2025.112471](https://doi.org/10.1016/j.jss.2025.112471).
+
+As referências complementares usadas no trabalho de expansão ficam registradas
+em [`inputs/reference/literature_expanded.md`](inputs/reference/literature_expanded.md).

@@ -1,40 +1,3 @@
-## Coleta histórica de documentação versionada no GitHub.
-## Os registros ficam em JSONL para permitir retomada e análise offline.
-
-script_arg_for_source <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
-script_path_for_source <- if (length(script_arg_for_source)) sub("^--file=", "", script_arg_for_source[[1L]]) else file.path("functions", "collect.R")
-common_candidates <- unique(c(
-  file.path(dirname(script_path_for_source), "common.R"),
-  file.path(dirname(script_path_for_source), "..", "functions", "common.R"),
-  file.path("functions", "common.R")
-))
-common_path <- common_candidates[file.exists(common_candidates)][[1L]]
-if (is.na(common_path) || !nzchar(common_path)) stop("functions/common.R não encontrado.")
-source(common_path)
-
-# Lê os caminhos e o número de trabalhadores.
-parse_options <- function(args) {
-  values <- list(
-    input = sample_path(),
-    output = dirname(raw_checkpoint_path()),
-    workers = 1L
-  )
-  index <- 1L
-  while (index <= length(args)) {
-    option <- args[[index]]
-    if (option %in% c("--input", "--output", "--workers") && index < length(args)) {
-      name <- sub("^--", "", option)
-      value <- args[[index + 1L]]
-      values[[name]] <- if (name == "workers") max(1L, as.integer(value)) else value
-      index <- index + 2L
-    } else {
-      stop("Uso: Rscript scripts/collect.R [--input arquivo.csv] [--output diretório] [--workers N]")
-    }
-  }
-  values
-}
-
-# Mantém no checkpoint apenas os metadados usados pela análise.
 compact_metadata <- function(body) {
   if (!is.list(body)) return(list())
   metadata <- list()
@@ -47,7 +10,6 @@ compact_metadata <- function(body) {
   metadata
 }
 
-# Extrai os campos estáveis de um commit.
 commit_info <- function(payload) {
   commit <- payload$commit %||% list()
   author <- commit$author %||% list()
@@ -66,48 +28,70 @@ commit_info <- function(payload) {
   )
 }
 
-# Recupera o commit, a árvore e os documentos de um snapshot.
-collect_version <- function(repository, until, accessible, token) {
+document_cache_key <- function(repository, commit_sha, candidate) {
+  blob_sha <- scalar_text(candidate$blob_sha, "")
+  identity <- if (nzchar(blob_sha)) {
+    paste0("blob:", blob_sha)
+  } else {
+    paste0("commit:", commit_sha, "::path:", scalar_text(candidate$path, ""))
+  }
+  paste(repository, identity, sep = "::")
+}
+
+collect_version <- function(repository, until, accessible, token, document_cache = NULL) {
   version <- list(until = until)
   if (!accessible) {
     version$error <- "versão não consultada porque a validação do repositório falhou"
     return(version)
   }
   commits <- github_api(paste0("/repos/", repository, "/commits"), list(until = until, per_page = 1), token)
+  if (!api_response_ok(commits) && api_error_is_rate_limited(commits$error)) stop(commits$error, call. = FALSE)
   version$commit_request_status <- commits$status
-  first <- if (commits$status >= 200L && commits$status < 300L && is.list(commits$body) && length(commits$body)) commits$body[[1L]] else NULL
+  version$commit_rate <- commits$rate %||% list()
+  first <- if (api_response_ok(commits) && is.list(commits$body) && length(commits$body)) commits$body[[1L]] else NULL
   if (is.null(first)) {
-    version$error <- if (nzchar(commits$error)) commits$error else "nenhum commit disponível no limite temporal"
+    version$error <- if (nzchar(commits$error %||% "")) commits$error else "nenhum commit disponível no limite temporal"
     return(version)
   }
   commit <- commit_info(first)
   version$commit <- commit
   tree_response <- github_api(paste0("/repos/", repository, "/git/trees/", commit$tree_sha), list(recursive = 1), token)
+  if (!api_response_ok(tree_response) && api_error_is_rate_limited(tree_response$error)) stop(tree_response$error, call. = FALSE)
   version$tree_request_status <- tree_response$status
+  version$tree_rate <- tree_response$rate %||% list()
   version$tree_truncated <- scalar_bool((tree_response$body %||% list())$truncated, FALSE)
-  if (tree_response$status != 200L) {
-    version$error <- if (nzchar(tree_response$error)) tree_response$error else "árvore Git não recuperada"
+  if (!api_response_ok(tree_response)) {
+    version$error <- if (nzchar(tree_response$error %||% "")) tree_response$error else "árvore Git não recuperada"
     return(version)
   }
   candidates <- document_candidates(tree_response$body)
   version$document_candidates <- candidates
   documents <- list()
   for (candidate in candidates) {
-    downloaded <- github_raw(repository, commit$sha, candidate$path, token)
+    cache_key <- document_cache_key(repository, commit$sha, candidate)
+    downloaded <- if (!is.null(document_cache) && exists(cache_key, envir = document_cache, inherits = FALSE)) {
+      get(cache_key, envir = document_cache, inherits = FALSE)
+    } else {
+      value <- github_raw(repository, commit$sha, candidate$path, token)
+      if (!is.null(document_cache)) assign(cache_key, value, envir = document_cache)
+      value
+    }
+    if (api_error_is_rate_limited(downloaded$note)) stop(downloaded$note, call. = FALSE)
     document <- c(candidate, list(
       status = downloaded$status,
       text = downloaded$text,
       fetch_note = downloaded$note,
+      rate = downloaded$rate %||% list(),
       text_sha256 = if (nzchar(downloaded$text)) sha256_text(downloaded$text) else ""
     ))
     documents[[length(documents) + 1L]] <- document
   }
   version$documents <- documents
+  version$classification_rule_version <- RULE_VERSION
   version$classification <- classify_documents(documents, commit$sha, repository)
   version
 }
 
-# Monta o registro pareado de um repositório.
 collect_one <- function(row, source_hash, token) {
   repository <- scalar_text(row$repository, "")
   result <- list(
@@ -118,53 +102,114 @@ collect_one <- function(row, source_hash, token) {
     observed_at = format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%OS3Z")
   )
   metadata_response <- github_api(paste0("/repos/", repository), list(), token)
+  if (!api_response_ok(metadata_response) && api_error_is_rate_limited(metadata_response$error)) {
+    stop(metadata_response$error, call. = FALSE)
+  }
   result$accessibility <- list(
     http_status = metadata_response$status,
-    accessible = metadata_response$status == 200L,
+    accessible = api_response_ok(metadata_response),
     metadata = compact_metadata(metadata_response$body),
-    error = metadata_response$error
+    error = metadata_response$error %||% "",
+    rate = metadata_response$rate %||% list()
   )
-  result$pre <- collect_version(repository, PRE_UNTIL, metadata_response$status == 200L, token)
-  result$post <- collect_version(repository, POST_UNTIL, metadata_response$status == 200L, token)
+  accessible <- api_response_ok(metadata_response)
+  document_cache <- new.env(parent = emptyenv())
+  result$pre <- collect_version(repository, PRE_UNTIL, accessible, token, document_cache)
+  result$post <- collect_version(repository, POST_UNTIL, accessible, token, document_cache)
   result
 }
 
-# Confirma se um registro pode ser reutilizado.
 is_reusable <- function(record, source_hash) {
   !is.null(record) && identical(scalar_text(record$source_sha256, ""), source_hash) &&
-    identical(scalar_text(record$collector_protocol_version, ""), COLLECTOR_PROTOCOL_VERSION)
+    scalar_text(record$collector_protocol_version, "") %in% COLLECTOR_PROTOCOL_COMPATIBLE_VERSIONS
 }
 
-# Consulta apenas os repositórios pendentes e grava cada linha ao terminar.
+assert_checkpoint_complete <- function(sample, checkpoint, source_hash) {
+  records <- index_records(read_jsonl(checkpoint))
+  repositories <- unique(as.character(sample$repository))
+  incomplete <- repositories[!vapply(repositories, function(repository) {
+    is_reusable(records[[repository]], source_hash) && is_complete_record(records[[repository]])
+  }, logical(1L))]
+  if (length(incomplete)) {
+    preview <- paste(head(incomplete, 8L), collapse = ", ")
+    suffix <- if (length(incomplete) > 8L) "..." else ""
+    stop(sprintf(
+      "Coleta incompleta: %d de %d repositórios não foram concluídos (%s%s). Execute novamente --select para iniciar uma coleta limpa.",
+      length(incomplete), length(repositories), preview, suffix
+    ), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 run_collection <- function(options) {
   input_path <- resolve_project_path(options$input %||% sample_path())
-  output_dir <- resolve_project_path(options$output %||% dirname(raw_checkpoint_path()))
-  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-  checkpoint <- file.path(output_dir, "repository_results.jsonl")
   sample <- read_sample(input_path)
   validate_open_source_sample(sample)
   source_hash <- sha256_file(input_path)
+  output_dir <- resolve_project_path(options$output %||% dirname(raw_checkpoint_path()))
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  checkpoint <- file.path(output_dir, "repository_results.jsonl")
+  if (isTRUE(options$fresh) && file.exists(checkpoint)) {
+    unlink(checkpoint)
+    cat(sprintf("Checkpoint anterior removido; iniciando coleta limpa.\n  Arquivo: %s\n",
+                normalizePath(checkpoint, mustWork = FALSE)))
+  }
   cached <- index_records(read_jsonl(checkpoint))
-  repositories <- as.character(sample$repository)
+  repositories <- unique(as.character(sample$repository))
   pending <- repositories[!vapply(repositories, function(repository) is_reusable(cached[[repository]], source_hash), logical(1L))]
-  cat(sprintf("Amostra open source=%d; checkpoint=%d; pendentes=%d; pré=%s; pós=%s; trabalhadores=%d\n", nrow(sample), length(cached), length(pending), PRE_UNTIL, POST_UNTIL, options$workers))
+  cat(sprintf(
+    "Coleta histórica\n  Amostra:     %d repositórios\n  Checkpoint:  %d registros\n  Pendentes:   %d repositórios\n  Períodos:    pré %s | pós %s\n  Execução:    sequencial\n",
+    nrow(sample), length(cached), length(pending), PRE_UNTIL, POST_UNTIL
+  ))
   if (length(pending)) {
-    # Um checkpoint completo não precisa de credenciais.
     token <- Sys.getenv("GITHUB_TOKEN", unset = "")
     if (!nzchar(token)) token <- read_dotenv_token()
     if (!nzchar(token)) stop("GITHUB_TOKEN não encontrado no ambiente ou em .env.")
-    # A escrita sequencial mantém a retomada determinística.
+    tracker <- new.env(parent = emptyenv())
+    tracker$started <- Sys.time()
+    tracker$last_report <- Sys.time()
+    completed <- 0L
+    incomplete <- 0L
+    cat(sprintf("\nIniciando coleta de %d repositórios.\n", length(pending)))
     for (index in seq_along(pending)) {
       repository <- pending[[index]]
       row <- sample[match(repository, sample$repository), , drop = FALSE]
       record <- tryCatch(
         collect_one(row, source_hash, token),
-        error = function(error) list(repository = repository, input_row = as.list(row), fatal_error = conditionMessage(error))
+        error = function(error) {
+          if (api_error_is_rate_limited(error)) stop(error)
+          list(repository = repository, input_row = as.list(row), fatal_error = conditionMessage(error))
+        }
       )
       write_jsonl(list(record), checkpoint, append = TRUE)
-      cat(sprintf("coletado %d/%d: %s\n", index, length(pending), repository))
+      is_failure <- !is.null(record$fatal_error) || !is_complete_record(record)
+      if (is_failure) incomplete <- incomplete + 1L else completed <- completed + 1L
+      if (index == 1L || index == length(pending) || index %% 10L == 0L ||
+          as.numeric(difftime(Sys.time(), tracker$last_report, units = "secs")) >= 60) {
+        elapsed_seconds <- as.numeric(difftime(Sys.time(), tracker$started, units = "secs"))
+        elapsed_minutes <- elapsed_seconds / 60
+        remaining_minutes <- if (elapsed_seconds > 0) {
+          (length(pending) - index) * elapsed_seconds / index / 60
+        } else {
+          NA_real_
+        }
+        estimate <- if (is.finite(remaining_minutes)) sprintf("%.1f min", remaining_minutes) else "calculando"
+        cat(sprintf(
+          "\n  Progresso: %d/%d | completos: %d | incompletos: %d\n  Atual: %s — %s\n  Tempo: %.1f min decorridos | restante estimado: %s\n",
+          index, length(pending), completed, incomplete,
+          repository, if (is_failure) "INCOMPLETO" else "OK", elapsed_minutes, estimate
+        ))
+        tracker$last_report <- Sys.time()
+      }
     }
+    cat(sprintf(
+      "\nResumo da coleta\n  Processados:  %d/%d repositórios\n  Completos:    %d\n  Incompletos:  %d\n",
+      length(pending), length(pending), completed, incomplete
+    ))
+  } else {
+    cat("\nColeta histórica\n  Nenhum repositório pendente; resultados do checkpoint local mantidos.\n")
   }
-  cat(sprintf("Checkpoint gravado em %s\n", normalizePath(checkpoint, mustWork = FALSE)))
+  cat(sprintf("  Checkpoint salvo: %s\n", normalizePath(checkpoint, mustWork = FALSE)))
+  assert_checkpoint_complete(sample, checkpoint, source_hash)
   invisible(checkpoint)
 }

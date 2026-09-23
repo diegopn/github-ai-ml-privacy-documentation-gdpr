@@ -7,13 +7,25 @@
 *.iml
 *.tmp
 *.body
+*.headers
 *.status
 *.error
+*.partial
+*.repair
+outputs/metadata/.pipeline.lock/
+outputs/metadata/github_api_rate_state.json
+outputs/metadata/github_api_rate_state.json.lock/
+outputs/metadata/selection_run_state.json
+outputs/metadata/selection_progress/
+outputs/metadata/run_status.json
 _site/
 .quarto/
 renv/library/
 renv/staging/
 renv/local/
+**/*.quarto_ipynb
+.DS_Store
+Thumbs.db
+Rplots.pdf
 
 /.quarto/
-**/*.quarto_ipynb

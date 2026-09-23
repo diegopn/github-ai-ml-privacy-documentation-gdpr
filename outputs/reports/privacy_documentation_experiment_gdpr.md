@@ -7,11 +7,15 @@ Este projeto executa a coleta, a classificação textual e a análise estatísti
 ## Entrada e desenho
 
 - CSV de entrada: `inputs/final/selected_repositories.csv`.
-- SHA-256 do CSV: `0247427ae2850acc5302f94b585e765434b3f339db54f9e51baa00012583b25b`.
-- Linhas da amostra: **328**.
+- SHA-256 do CSV: `ac77dbe70022b479af11f38dbc689b7e6691863f03f9c58a94ae8d9285243bf2`.
+- Linhas da amostra: **474**.
+- Protocolos de coleta presentes no checkpoint: `open-source-no-size-limit-expanded-topics-2026-09`.
 - Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.
 - Versão pré-GDPR: último commit até `2018-05-24T23:59:59Z`.
 - Versão pós-GDPR: último commit até `2026-06-30T23:59:59Z`.
+- Tópicos de descoberta ampliados (24): `artificial-intelligence`, `deep-learning`, `machine-learning`, `deep-neural-network`, `reinforcement-learning`, `computer-vision`, `image-processing`, `neural-network`, `image-classification`, `convolutional-neural-networks`, `object-detection`, `machine-intelligence`, `natural-language-processing`, `nlp`, `large-language-model`, `large-language-models`, `llm`, `transformer`, `transformers`, `generative-ai`, `diffusion`, `multimodal`, `retrieval-augmented-generation`, `ai-agents`.
+- Filtros preservados: pelo menos 500 estrelas, 100 issues reais e 24 meses de atividade.
+- Manifesto das consultas particionadas: `outputs/metadata/selection_search_manifest.json`.
 - Nível de significância: **α = 0.050**.
 
 A comparação é pareada e observacional. O resultado mede evidência documental versionada; não demonstra causalidade da GDPR nem conformidade jurídica.
@@ -24,12 +28,12 @@ D1 indica presença de evidência documental contextualizada. O PDE Score soma C
 
 ## Resultados
 
-- D1 pré: **1/328** (0.3%).
-- D1 pós: **16/328** (4.9%).
-- Pares completos: **328**.
-- Score médio pré/pós: **0.000 / 0.082**.
-- McNemar exato bicaudal: **p=0.000275**.
-- Wilcoxon exato bicaudal: **p=0.000244**.
+- D1 pré: **3/474** (0.6%).
+- D1 pós: **29/474** (6.1%).
+- Pares completos: **474**.
+- Score médio pré/pós: **0.011 / 0.135**.
+- McNemar exato bicaudal: **p=0.000000**.
+- Wilcoxon exato bicaudal: **p=0.000000**.
 
 ## Limitações
 
@@ -40,4 +44,4 @@ Documentos externos ao repositório, práticas não versionadas e textos que nã
 A coleta grava um checkpoint JSONL em `inputs/raw/repository_results.jsonl`. A análise pode ser repetida sem acesso à API usando o mesmo CSV e esse checkpoint. O dataset, as estatísticas e os relatórios são derivados desses arquivos.
 
 Versão das regras: `semantic-conservative-2026-09-c1-c4`.
-Linhas no dataset final: **328**.
+Linhas no dataset final: **474**.

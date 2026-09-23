@@ -1,6 +1,3 @@
-## Funções compartilhadas da coleta, classificação e análise.
-## As regras ficam aqui para que a coleta e a análise usem o mesmo protocolo.
-
 if (!requireNamespace("jsonlite", quietly = TRUE)) {
   stop("O pacote 'jsonlite' é necessário. Instale-o com install.packages('jsonlite').")
 }
@@ -8,7 +5,6 @@ if (!requireNamespace("yaml", quietly = TRUE)) {
   stop("O pacote 'yaml' é necessário. Instale-o com install.packages('yaml').")
 }
 
-# Localiza a raiz a partir do script em execução ou do diretório atual.
 find_project_root <- function() {
   file_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
   current <- if (length(file_argument)) {
@@ -29,12 +25,10 @@ find_project_root <- function() {
 
 PROJECT_ROOT <- find_project_root()
 
-# Devolve um valor alternativo quando o campo está ausente.
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0L) y else x
 
 SETTINGS <- yaml::read_yaml(file.path(PROJECT_ROOT, "settings.yml"))
 
-# Lê uma configuração com valor padrão.
 setting <- function(section, key, default = NULL) {
   values <- SETTINGS[[section]] %||% list()
   value <- values[[key]]
@@ -43,7 +37,6 @@ setting <- function(section, key, default = NULL) {
 
 project_path <- function(...) file.path(PROJECT_ROOT, ...)
 
-# Resolve caminhos relativos à raiz e mantém caminhos absolutos.
 resolve_project_path <- function(path) {
   path <- as.character(path %||% "")[[1L]]
   if (!nzchar(path)) return(path)
@@ -52,7 +45,6 @@ resolve_project_path <- function(path) {
   project_path(path)
 }
 
-# Retorna o caminho relativo à raiz quando possível.
 project_relative <- function(path) {
   absolute <- normalizePath(path, mustWork = FALSE)
   root <- normalizePath(PROJECT_ROOT, mustWork = FALSE)
@@ -60,22 +52,28 @@ project_relative <- function(path) {
   if (startsWith(absolute, prefix)) substring(absolute, nchar(prefix) + 1L) else absolute
 }
 
-# Lê um caminho configurável.
 path_setting <- function(name, default) {
   value <- setting("paths", name, default)
   if (is.list(value)) value <- value[[1L]]
-  project_path(as.character(value))
+  resolve_project_path(as.character(value))
 }
 
 sample_path <- function() path_setting("sample", "inputs/final/selected_repositories.csv")
+
+sample_hash_path <- function() path_setting("sample_hash", "inputs/final/published_sample.sha256.txt")
 
 raw_checkpoint_path <- function() path_setting("raw_checkpoint", "inputs/raw/repository_results.jsonl")
 
 reference_spdx_path <- function() path_setting("reference_spdx", "inputs/reference/osi_approved_spdx_ids.txt")
 
+selection_audit_path <- function() path_setting("selection_audit", "outputs/metadata/selection_search_manifest.json")
+
+selection_state_path <- function() path_setting("selection_state", "outputs/metadata/selection_run_state.json")
+
+selection_progress_path <- function() path_setting("selection_progress", "outputs/metadata/selection_progress")
+
 output_root_path <- function() path_setting("output_root", "outputs")
 
-# Organiza os diretórios de saída.
 output_paths <- function(output = output_root_path()) {
   root <- resolve_project_path(output)
   list(
@@ -87,11 +85,14 @@ output_paths <- function(output = output_root_path()) {
   )
 }
 
-# Limites dos dois snapshots históricos.
 PRE_UNTIL <- as.character(setting("analysis", "pre_until", "2018-05-24T23:59:59Z"))
 POST_UNTIL <- as.character(setting("analysis", "post_until", "2026-06-30T23:59:59Z"))
 ALPHA <- as.numeric(setting("analysis", "alpha", 0.05))
-COLLECTOR_PROTOCOL_VERSION <- "open-source-no-size-limit-2026-09"
+COLLECTOR_PROTOCOL_VERSION <- "open-source-no-size-limit-expanded-topics-2026-09"
+COLLECTOR_PROTOCOL_COMPATIBLE_VERSIONS <- c(
+  COLLECTOR_PROTOCOL_VERSION,
+  "open-source-no-size-limit-2026-09"
+)
 RULE_VERSION <- "semantic-conservative-2026-09-c1-c4"
 
 TEXT_EXTENSIONS <- c(
@@ -105,7 +106,6 @@ PRIVACY_MARKERS <- c(
   "consent", "retention", "subprocessor", "compliance"
 )
 
-# Cada regra combina termos, contexto e grupos obrigatórios.
 RULES <- list(
   C1 = list(
     label = "dados pessoais",
@@ -223,7 +223,6 @@ RULES <- list(
   )
 )
 
-# Extrai o primeiro valor de uma estrutura JSON/YAML.
 scalar <- function(x, default = "") {
   if (is.null(x) || length(x) == 0L) return(default)
   if (is.list(x)) x <- x[[1L]]
@@ -231,20 +230,17 @@ scalar <- function(x, default = "") {
   x[[1L]]
 }
 
-# Converte um valor para texto.
 scalar_text <- function(x, default = "") {
   value <- scalar(x, default)
   if (is.null(value) || length(value) == 0L || is.na(value)) return(default)
   as.character(value)
 }
 
-# Converte um valor para inteiro.
 scalar_int <- function(x, default = 0L) {
   value <- suppressWarnings(as.integer(scalar(x, default)))
   if (is.na(value)) default else value
 }
 
-# Normaliza valores lógicos vindos de JSON, YAML ou CSV.
 scalar_bool <- function(x, default = FALSE) {
   value <- scalar(x, default)
   if (is.logical(value)) return(isTRUE(value))
@@ -255,25 +251,21 @@ scalar_bool <- function(x, default = FALSE) {
   else default
 }
 
-# Executa uma expressão regular sem falhar em campos vazios ou padrões inválidos.
 safe_grepl <- function(pattern, text) {
   if (is.null(text) || !length(text) || is.na(text)) return(FALSE)
   tryCatch(grepl(pattern, text, ignore.case = TRUE, perl = TRUE), error = function(...) FALSE)
 }
 
-# Verifica se algum padrão aparece no texto.
 matches_any <- function(patterns, text) {
   length(patterns) > 0L && any(vapply(patterns, safe_grepl, logical(1L), text = text))
 }
 
-# Calcula o SHA-256 de um arquivo.
 sha256_file <- function(path) {
   result <- system2("sha256sum", c(path), stdout = TRUE, stderr = TRUE)
   if (!length(result)) stop(sprintf("Não foi possível calcular SHA-256 de %s.", path))
   sub("[[:space:]].*$", "", result[[1L]])
 }
 
-# Calcula o SHA-256 de um texto.
 sha256_text <- function(text) {
   temporary <- tempfile(fileext = ".txt")
   on.exit(unlink(temporary), add = TRUE)
@@ -281,7 +273,6 @@ sha256_text <- function(text) {
   sha256_file(temporary)
 }
 
-# Lê a amostra congelada e normaliza campos ausentes.
 read_sample <- function(path) {
   if (!file.exists(path)) stop(sprintf("Arquivo de entrada não encontrado: %s", path))
   result <- read.csv(
@@ -290,14 +281,20 @@ read_sample <- function(path) {
   )
   names(result)[[1L]] <- sub("^\\ufeff", "", names(result)[[1L]])
   result[is.na(result)] <- ""
+  if (!nrow(result)) stop(sprintf("A amostra está vazia: %s", path))
   result
 }
 
-# Confirma o schema mínimo e a licença OSI da amostra.
 validate_open_source_sample <- function(sample) {
   required <- c("repository", "license_spdx_id", "license_osi_approved")
   missing <- setdiff(required, names(sample))
   if (length(missing)) stop(sprintf("Colunas ausentes na amostra: %s", paste(missing, collapse = ", ")))
+  repositories <- trimws(as.character(sample$repository))
+  if (any(!nzchar(repositories))) stop("A amostra contém repositório vazio.")
+  if (anyDuplicated(repositories)) {
+    duplicated_repositories <- unique(repositories[duplicated(repositories)])
+    stop(sprintf("A amostra contém repositórios duplicados: %s", paste(head(duplicated_repositories, 5L), collapse = ", ")))
+  }
   invalid <- is.na(sample$license_spdx_id) |
     trimws(as.character(sample$license_spdx_id)) == "" |
     tolower(as.character(sample$license_osi_approved)) != "true"
@@ -308,31 +305,47 @@ validate_open_source_sample <- function(sample) {
   invisible(TRUE)
 }
 
-# Acrescenta registros ao checkpoint JSONL.
 write_jsonl <- function(records, path, append = TRUE) {
+  if (!length(records)) return(invisible(path))
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   con <- file(path, open = if (append) "a" else "w", encoding = "UTF-8")
   on.exit(close(con), add = TRUE)
   for (record in records) {
     line <- jsonlite::toJSON(record, auto_unbox = TRUE, null = "null", dataframe = "rows", pretty = FALSE, digits = 16)
     writeLines(enc2utf8(line), con, useBytes = TRUE)
+    flush(con)
   }
 }
 
-# Lê o checkpoint JSONL, validando cada linha.
-read_jsonl <- function(path) {
+# Descarta uma última linha sem newline somente quando a escrita foi interrompida.
+read_jsonl <- function(path, repair_truncated_tail = TRUE) {
   if (!file.exists(path)) return(list())
   lines <- readLines(path, encoding = "UTF-8", warn = FALSE)
   lines <- lines[nzchar(trimws(lines))]
   if (!length(lines)) return(list())
-  lapply(seq_along(lines), function(index) {
-    tryCatch(
+  parsed <- vector("list", length(lines))
+  for (index in seq_along(lines)) {
+    parsed[[index]] <- tryCatch(
       jsonlite::fromJSON(lines[[index]], simplifyVector = FALSE),
-      error = function(error) stop(sprintf("JSONL inválido na linha %d: %s", index, error$message))
+      error = function(error) {
+        is_last <- index == length(lines)
+        raw_file <- tryCatch(readBin(path, "raw", n = file.info(path)$size), error = function(...) raw())
+        has_final_newline <- length(raw_file) > 0L && tail(raw_file, 1L) %in% as.raw(c(10, 13))
+        if (isTRUE(repair_truncated_tail) && is_last && !has_final_newline) {
+          warning(sprintf("A última linha incompleta do checkpoint foi removida: %s", path), call. = FALSE)
+          temporary <- paste0(path, ".repair")
+          valid_lines <- if (index > 1L) lines[seq_len(index - 1L)] else character()
+          writeLines(valid_lines, temporary, useBytes = TRUE)
+          if (!file.rename(temporary, path)) unlink(temporary, force = TRUE)
+          return(NULL)
+        }
+        stop(sprintf("JSONL inválido na linha %d: %s", index, error$message), call. = FALSE)
+      }
     )
-  })
+  }
+  parsed[!vapply(parsed, is.null, logical(1L))]
 }
 
-# Indexa os registros pelo nome do repositório.
 index_records <- function(records) {
   result <- list()
   for (record in records) {
@@ -342,7 +355,6 @@ index_records <- function(records) {
   result
 }
 
-# Lê GITHUB_TOKEN de um arquivo .env local.
 read_dotenv_token <- function(path = project_path(".env")) {
   if (!file.exists(path)) return("")
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
@@ -352,28 +364,357 @@ read_dotenv_token <- function(path = project_path(".env")) {
   sub("^[\"']|[\"']$", "", trimws(token))
 }
 
-# Executa uma requisição HTTP com tentativas para erros transitórios.
-http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L, return_headers = FALSE) {
+atomic_write_json <- function(object, path, pretty = TRUE) {
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  temporary <- paste0(path, ".partial")
+  jsonlite::write_json(object, temporary, auto_unbox = TRUE, pretty = pretty, na = "null", digits = 16)
+  if (!file.rename(temporary, path)) {
+    unlink(temporary, force = TRUE)
+    stop(sprintf("Não foi possível finalizar o arquivo: %s", path), call. = FALSE)
+  }
+  invisible(path)
+}
+
+atomic_write_lines <- function(lines, path) {
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  temporary <- paste0(path, ".partial")
+  writeLines(enc2utf8(as.character(lines)), temporary, useBytes = TRUE)
+  if (!file.rename(temporary, path)) {
+    unlink(temporary, force = TRUE)
+    stop(sprintf("Não foi possível finalizar o arquivo: %s", path), call. = FALSE)
+  }
+  invisible(path)
+}
+
+# Impede duas execuções do projeto de escreverem os mesmos artefatos.
+process_is_alive <- function(pid) {
+  pid <- suppressWarnings(as.integer(pid))
+  if (is.na(pid) || pid <= 0L) return(FALSE)
+  if (dir.exists("/proc")) return(file.exists(file.path("/proc", as.character(pid))))
+  FALSE
+}
+
+read_lock_owner <- function(path) {
+  owner_path <- file.path(path, "owner.json")
+  if (!file.exists(owner_path)) return(NULL)
+  tryCatch(jsonlite::fromJSON(owner_path, simplifyVector = FALSE), error = function(...) NULL)
+}
+
+acquire_file_lock <- function(path, timeout_seconds = 30, stale_seconds = 300, metadata = list()) {
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  started <- Sys.time()
+  timeout_seconds <- max(0, as.numeric(timeout_seconds %||% 30))
+  stale_seconds <- max(5, as.numeric(stale_seconds %||% 300))
+  repeat {
+    if (dir.create(path, showWarnings = FALSE, recursive = FALSE)) {
+      owner <- c(
+        list(
+          pid = Sys.getpid(),
+          acquired_at = format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
+        ),
+        metadata
+      )
+      tryCatch(
+        atomic_write_json(owner, file.path(path, "owner.json")),
+        error = function(error) {
+          unlink(path, recursive = TRUE, force = TRUE)
+          stop(error)
+        }
+      )
+      return(invisible(path))
+    }
+
+    info <- file.info(path)
+    age <- if (nrow(info) && !is.na(info$mtime)) as.numeric(difftime(Sys.time(), info$mtime, units = "secs")) else 0
+    owner <- read_lock_owner(path)
+    owner_pid <- if (is.list(owner)) owner$pid %||% NA_integer_ else NA_integer_
+    owner_known <- !is.null(owner)
+    owner_alive <- owner_known && process_is_alive(owner_pid)
+    if ((!owner_known && age > stale_seconds) || (owner_known && !owner_alive)) {
+      unlink(path, recursive = TRUE, force = TRUE)
+      next
+    }
+    elapsed <- as.numeric(difftime(Sys.time(), started, units = "secs"))
+    if (elapsed >= timeout_seconds) {
+      owner_label <- if (owner_known) paste0("PID ", owner_pid) else "proprietário desconhecido"
+      stop(sprintf("Lock ocupado: %s. Aguarde a execução atual terminar.", owner_label), call. = FALSE)
+    }
+    Sys.sleep(min(0.25, max(0.05, timeout_seconds - elapsed)))
+  }
+}
+
+release_file_lock <- function(path) {
+  if (dir.exists(path)) unlink(path, recursive = TRUE, force = TRUE)
+  invisible(TRUE)
+}
+
+project_lock_path <- function() file.path(project_path("outputs", "metadata"), ".pipeline.lock")
+
+with_file_lock <- function(path, code, timeout_seconds = 30, stale_seconds = 300, metadata = list()) {
+  acquire_file_lock(path, timeout_seconds, stale_seconds, metadata)
+  on.exit(release_file_lock(path), add = TRUE)
+  force(code)
+}
+
+api_rate_state_path <- function() {
+  resolve_project_path(as.character(setting("api", "rate_state_path", "outputs/metadata/github_api_rate_state.json")))
+}
+
+api_rate_state_default <- function() {
+  list(
+    last_request = list(search = 0, core = 0, raw = 0, graphql = 0),
+    not_before = list(search = 0, core = 0, raw = 0, graphql = 0),
+    updated_at = format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
+  )
+}
+
+read_api_rate_state <- function(path = api_rate_state_path()) {
+  if (!file.exists(path)) return(api_rate_state_default())
+  state <- tryCatch(jsonlite::fromJSON(path, simplifyVector = FALSE), error = function(...) NULL)
+  if (!is.list(state)) return(api_rate_state_default())
+  defaults <- api_rate_state_default()
+  state$last_request <- utils::modifyList(defaults$last_request, state$last_request %||% list())
+  state$not_before <- utils::modifyList(defaults$not_before, state$not_before %||% list())
+  state
+}
+
+api_state_number <- function(state, section, resource) {
+  value <- (state[[section]] %||% list())[[resource]]
+  value <- suppressWarnings(as.numeric(value %||% 0))
+  if (is.na(value)) 0 else value
+}
+
+api_rate_interval <- function(resource) {
+  key <- switch(
+    resource,
+    search = "search_interval_seconds",
+    raw = "raw_interval_seconds",
+    graphql = "graphql_interval_seconds",
+    "core_interval_seconds"
+  )
+  value <- suppressWarnings(as.numeric(setting("api", key, if (resource == "search") 2.2 else 0)))
+  if (is.na(value) || value < 0) 0 else value
+}
+
+api_wait_for_slot <- function(resource = "core") {
+  resource <- if (resource %in% c("search", "raw", "graphql")) resource else "core"
+  interval <- api_rate_interval(resource)
+  path <- api_rate_state_path()
+  lock_path <- paste0(path, ".lock")
+  lock_timeout <- as.numeric(setting("api", "lock_timeout_seconds", 30))
+  stale_seconds <- as.numeric(setting("api", "lock_stale_seconds", 300))
+  wait <- with_file_lock(lock_path, {
+    state <- read_api_rate_state(path)
+    now <- as.numeric(Sys.time())
+    interval_until <- api_state_number(state, "last_request", resource) + interval
+    rate_limit_until <- api_state_number(state, "not_before", resource)
+    scheduled <- max(
+      interval_until,
+      rate_limit_until
+    )
+    delay <- max(0, scheduled - now)
+    state$last_request[[resource]] <- max(now, scheduled)
+    state$updated_at <- format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
+    atomic_write_json(state, path, pretty = FALSE)
+    list(
+      delay = delay,
+      interval_delay = max(0, interval_until - now),
+      rate_limit_delay = max(0, rate_limit_until - now)
+    )
+  }, timeout_seconds = lock_timeout, stale_seconds = stale_seconds)
+  delay <- wait$delay
+  max_wait <- as.numeric(setting("api", "max_rate_wait_seconds", 7200))
+  if (is.finite(max_wait) && delay > max_wait) {
+    stop(sprintf("Limite da API do GitHub ainda bloqueado por aproximadamente %.0f segundos; tente uma nova execução após o reset.", delay), call. = FALSE)
+  }
+  remaining <- delay
+  report_wait <- wait$rate_limit_delay > wait$interval_delay + 0.5
+  if (remaining > 0 && report_wait) {
+    retry_at <- Sys.time() + remaining
+    cat(sprintf(
+      "GitHub API | recurso: %s | limite ativo\n  Nova tentativa estimada: %s UTC (em %.0f s)\n",
+      resource,
+      format(retry_at, tz = "UTC", format = "%Y-%m-%d %H:%M:%S"),
+      remaining
+    ))
+  }
+  while (remaining > 0) {
+    chunk <- min(30, remaining)
+    Sys.sleep(chunk)
+    remaining <- remaining - chunk
+    if (remaining > 0 && report_wait) {
+      cat(sprintf("  GitHub API | recurso: %s | aguardando reset: ~%.0f s\n", resource, remaining))
+    }
+  }
+  invisible(TRUE)
+}
+
+api_record_rate_state <- function(resource, headers, fallback_delay = 0) {
+  if (!is.list(headers)) return(invisible(FALSE))
+  remaining <- suppressWarnings(as.numeric(headers$github_remaining %||% NA_real_))
+  reset <- suppressWarnings(as.numeric(headers$github_reset %||% NA_real_))
+  retry_after <- suppressWarnings(as.numeric(headers$retry_after %||% NA_real_))
+  fallback_delay <- suppressWarnings(as.numeric(fallback_delay %||% 0))
+  if (is.na(fallback_delay) || fallback_delay < 0) fallback_delay <- 0
+  if ((is.na(remaining) || remaining > 0) && (is.na(retry_after) || retry_after <= 0) && fallback_delay <= 0) {
+    return(invisible(FALSE))
+  }
+  path <- api_rate_state_path()
+  lock_path <- paste0(path, ".lock")
+  with_file_lock(lock_path, {
+    state <- read_api_rate_state(path)
+    now <- as.numeric(Sys.time())
+    current <- api_state_number(state, "not_before", resource)
+    retry_at <- if (!is.na(retry_after) && retry_after > 0) now + retry_after + 2 else 0
+    reset_at <- if ((is.na(retry_after) || retry_after <= 0) &&
+                    !is.na(remaining) && remaining <= 0 &&
+                    !is.na(reset) && reset > now) reset + 2 else 0
+    fallback_at <- if (fallback_delay > 0) now + fallback_delay else 0
+    state$not_before[[resource]] <- max(current, reset_at, retry_at, fallback_at)
+    state$updated_at <- format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
+    atomic_write_json(state, path, pretty = FALSE)
+    invisible(TRUE)
+  }, timeout_seconds = as.numeric(setting("api", "lock_timeout_seconds", 30)),
+  stale_seconds = as.numeric(setting("api", "lock_stale_seconds", 300)))
+  invisible(TRUE)
+}
+
+api_rate_retry_at <- function(resources = c("search", "core", "graphql")) {
+  state <- read_api_rate_state()
+  values <- vapply(resources, function(resource) api_state_number(state, "not_before", resource), numeric(1L))
+  retry_at <- max(c(values, 0), na.rm = TRUE)
+  if (!is.finite(retry_at) || retry_at <= as.numeric(Sys.time())) return("")
+  format(as.POSIXct(retry_at, origin = "1970-01-01", tz = "UTC"), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+}
+
+parse_curl_headers <- function(lines) {
+  lines <- as.character(lines %||% character())
+  lines <- lines[nzchar(trimws(lines))]
+  status_lines <- grep("^HTTP/", lines, ignore.case = TRUE)
+  if (length(status_lines) > 1L) lines <- lines[status_lines[[length(status_lines)]]:length(lines)]
+  result <- list()
+  for (line in lines) {
+    match <- regexec("^([^:]+):[[:space:]]*(.*)$", line, perl = TRUE)
+    captured <- regmatches(line, match)[[1L]]
+    if (length(captured) < 3L) next
+    result[[tolower(trimws(captured[[2L]]))]] <- trimws(captured[[3L]])
+  }
+  result
+}
+
+api_header <- function(headers, name) as.character(headers[[tolower(name)]] %||% "")
+
+rate_headers <- function(headers) {
+  list(
+    github_remaining = api_header(headers, "x-ratelimit-remaining"),
+    github_reset = api_header(headers, "x-ratelimit-reset"),
+    github_resource = api_header(headers, "x-ratelimit-resource"),
+    retry_after = api_header(headers, "retry-after"),
+    request_id = api_header(headers, "x-github-request-id")
+  )
+}
+
+api_error_detail <- function(body_text, curl_error = "") {
+  parsed <- tryCatch(jsonlite::fromJSON(body_text, simplifyVector = FALSE), error = function(...) NULL)
+  message <- if (is.list(parsed)) scalar_text(parsed$message, "") else ""
+  detail <- if (nzchar(message)) message else trimws(gsub("[[:space:]]+", " ", body_text, perl = TRUE))
+  if (!nzchar(detail)) detail <- trimws(gsub("[[:space:]]+", " ", curl_error, perl = TRUE))
+  substr(detail, 1L, 500L)
+}
+
+api_response_is_rate_limited <- function(status, body_text, rate) {
+  if (is.na(status)) return(FALSE)
+  if (status == 429L) return(TRUE)
+  remaining <- suppressWarnings(as.numeric(rate$github_remaining %||% NA_real_))
+  retry_after <- suppressWarnings(as.numeric(rate$retry_after %||% NA_real_))
+  message <- tolower(body_text %||% "")
+  has_rate_message <- grepl("rate limit|secondary rate|abuse detection", message, perl = TRUE)
+  if (status == 200L && grepl('"errors"', message, fixed = TRUE)) {
+    return((!is.na(remaining) && remaining <= 0) || has_rate_message)
+  }
+  status == 403L && (
+    (!is.na(remaining) && remaining <= 0) ||
+      (!is.na(retry_after) && retry_after > 0) || has_rate_message
+  )
+}
+
+api_response_is_retryable <- function(status, body_text, rate) {
+  if (is.na(status) || status == 0L) return(TRUE)
+  if (status %in% c(408L, 425L, 429L) || status >= 500L) return(TRUE)
+  api_response_is_rate_limited(status, body_text, rate)
+}
+
+api_response_ok <- function(response) {
+  is.list(response) && !is.null(response$status) && !is.na(response$status) &&
+    response$status >= 200L && response$status < 300L &&
+    !nzchar(response$error %||% "")
+}
+
+api_error_is_rate_limited <- function(error) {
+  message <- if (inherits(error, "condition")) conditionMessage(error) else as.character(error %||% "")
+  grepl("rate limit|secondary rate|abuse detection|limite da api|limite de requisi", message, ignore.case = TRUE, perl = TRUE)
+}
+
+api_retry_delay <- function(status, rate, attempt, rate_limited = FALSE) {
+  retry_after <- suppressWarnings(as.numeric(rate$retry_after %||% NA_real_))
+  if (!is.na(retry_after) && retry_after > 0) return(retry_after)
+  remaining <- suppressWarnings(as.numeric(rate$github_remaining %||% NA_real_))
+  reset <- suppressWarnings(as.numeric(rate$github_reset %||% NA_real_))
+  if ((!is.na(remaining) && remaining <= 0 || isTRUE(rate_limited)) &&
+      !is.na(reset) && reset > as.numeric(Sys.time())) {
+    return(reset - as.numeric(Sys.time()) + 2)
+  }
+  base <- suppressWarnings(as.numeric(setting("api", "retry_base_seconds", 2)))
+  ceiling <- suppressWarnings(as.numeric(setting("api", "retry_max_seconds", 60)))
+  if (is.na(base) || base <= 0) base <- 2
+  if (is.na(ceiling) || ceiling < base) ceiling <- 60
+  if (isTRUE(rate_limited)) return(max(60, min(ceiling, base * 2 ^ max(0, attempt - 1L))))
+  min(ceiling, base * 2 ^ max(0, attempt - 1L))
+}
+
+# Centraliza autenticação, limite compartilhado e tentativas transitórias.
+http_request <- function(url, token = "", parse_json = TRUE, max_attempts = NULL,
+                         return_headers = FALSE, resource = "core", method = "GET",
+                         body_json = NULL) {
+  max_attempts <- suppressWarnings(as.integer(max_attempts %||% setting("api", "max_attempts", 4L)))
+  if (is.na(max_attempts) || max_attempts < 1L) max_attempts <- 1L
+  retry_budget <- suppressWarnings(as.numeric(setting("api", "retry_budget_seconds", 180)))
+  if (is.na(retry_budget) || retry_budget < 0) retry_budget <- 180
+  started <- Sys.time()
   body_path <- tempfile(fileext = ".body")
   status_path <- tempfile(fileext = ".status")
   error_path <- tempfile(fileext = ".error")
   header_path <- tempfile(fileext = ".headers")
   on.exit(unlink(c(body_path, status_path, error_path, header_path)), add = TRUE)
+  connect_timeout <- suppressWarnings(as.numeric(setting("api", "connect_timeout_seconds", 30)))
+  request_timeout <- suppressWarnings(as.numeric(setting("api", "timeout_seconds", 45)))
+  if (is.na(connect_timeout) || connect_timeout <= 0) connect_timeout <- 30
+  if (is.na(request_timeout) || request_timeout <= 0) request_timeout <- 45
 
-  for (attempt in seq_len(max_attempts)) {
+  attempt <- 1L
+  repeat {
+    api_wait_for_slot(resource)
     headers <- c(
       "Accept: application/vnd.github+json",
       "X-GitHub-Api-Version: 2022-11-28",
-      "User-Agent: github-privacy-experiment"
+      paste0("User-Agent: ", setting("api", "user_agent", "github-ai-ml-privacy-research"))
     )
     if (nzchar(token)) headers <- c(headers, paste0("Authorization: Bearer ", token))
     args <- c(
-      "--silent", "--show-error", "--location", "--connect-timeout", "30",
-      "--max-time", "45"
+      "--silent", "--show-error", "--location", "--connect-timeout", as.character(connect_timeout),
+      "--max-time", as.character(request_timeout)
     )
-    for (header in headers) args <- c(args, "--header", header)
-    args <- c(args, "--dump-header", header_path, "--output", body_path,
-              "--write-out", "%{http_code}", url)
+    method <- toupper(as.character(method %||% "GET"))
+    if (!method %in% c("GET", "POST")) stop(sprintf("Método HTTP não suportado: %s", method), call. = FALSE)
+    if (identical(method, "POST")) {
+      args <- c(args, "--request", "POST", "--header", shQuote("Content-Type: application/json"))
+      if (!is.null(body_json)) args <- c(args, "--data-raw", shQuote(as.character(body_json)))
+    }
+    # system2() monta a linha de comando do shell; valores com espaços
+    # precisam ser protegidos para que cada cabeçalho permaneça um argumento.
+    for (header in headers) args <- c(args, "--header", shQuote(header))
+    args <- c(args, "--dump-header", shQuote(header_path), "--output", shQuote(body_path),
+              "--write-out", shQuote("%{http_code}"), shQuote(url))
     unlink(c(status_path, error_path, header_path))
     exit_status <- tryCatch(
       system2("curl", args, stdout = status_path, stderr = error_path),
@@ -384,42 +725,60 @@ http_request <- function(url, token = "", parse_json = TRUE, max_attempts = 4L, 
     error_text <- if (file.exists(error_path)) paste(readLines(error_path, warn = FALSE), collapse = " ") else ""
     bytes <- if (file.exists(body_path)) readBin(body_path, "raw", n = file.info(body_path)$size) else raw(0)
     body_text <- if (length(bytes)) iconv(rawToChar(bytes), from = "UTF-8", to = "UTF-8", sub = "") else ""
-    retryable <- is.na(status) || exit_status != 0L || status %in% c(403L, 429L) || status >= 500L
-    if (retryable && attempt < max_attempts) {
-      Sys.sleep(min(60, 2 ^ attempt))
+    raw_headers <- if (file.exists(header_path)) readLines(header_path, warn = FALSE) else character()
+    parsed_headers <- parse_curl_headers(raw_headers)
+    rate <- rate_headers(parsed_headers)
+    rate_limited <- api_response_is_rate_limited(status, body_text, rate)
+    retryable <- api_response_is_retryable(status, body_text, rate) || exit_status != 0L
+    delay <- if (retryable) api_retry_delay(status, rate, attempt, rate_limited) else 0
+    api_record_rate_state(resource, rate, fallback_delay = if (rate_limited) delay else 0)
+    elapsed <- as.numeric(difftime(Sys.time(), started, units = "secs"))
+    max_rate_wait <- suppressWarnings(as.numeric(setting("api", "max_rate_wait_seconds", 7200)))
+    if (is.na(max_rate_wait) || max_rate_wait < 0) max_rate_wait <- 7200
+    if (rate_limited && elapsed + delay <= max_rate_wait) {
+      next
+    }
+    if (retryable && attempt < max_attempts && (elapsed + delay) <= retry_budget) {
+      remaining_budget <- max(0, retry_budget - elapsed)
+      cat(sprintf("GitHub API | resposta transitória HTTP %s\n  Nova tentativa: %d/%d em %.0f s\n",
+                  ifelse(is.na(status), "transporte", status), attempt, max_attempts - 1L,
+                  min(delay, remaining_budget)))
+      remaining_sleep <- delay
+      while (remaining_sleep > 0) {
+        chunk <- min(60, remaining_sleep)
+        Sys.sleep(chunk)
+        remaining_sleep <- remaining_sleep - chunk
+      }
+      attempt <- attempt + 1L
       next
     }
     if (is.na(status)) status <- 0L
-    if (parse_json && status >= 200L && status < 300L) {
-      body <- tryCatch(
-        if (nzchar(body_text)) jsonlite::fromJSON(body_text, simplifyVector = FALSE) else list(),
-        error = function(error) list()
-      )
+    parsed_body <- tryCatch(
+      if (nzchar(body_text)) jsonlite::fromJSON(body_text, simplifyVector = FALSE) else list(),
+      error = function(error) list()
+    )
+    if (parse_json) {
+      body <- parsed_body
     } else {
       body <- body_text
     }
-    error <- if (status >= 200L && status < 300L) "" else {
-      detail <- substr(body_text, 1L, 300L)
-      paste0("HTTP ", status, if (nzchar(detail)) paste0(": ", detail) else if (nzchar(error_text)) paste0(": ", error_text) else "")
+    error <- if (status >= 200L && status < 300L) "" else if (status > 0L) {
+      detail <- api_error_detail(body_text, error_text)
+      paste0("HTTP ", status, if (nzchar(detail)) paste0(": ", detail) else "")
+    } else {
+      paste0("Falha de transporte", if (nzchar(error_text)) paste0(": ", api_error_detail("", error_text)) else "")
     }
-    result <- list(status = status, body = body, error = error)
-    if (return_headers) result$headers <- if (file.exists(header_path)) readLines(header_path, warn = FALSE) else character()
+    result <- list(status = status, body = body, error = error, rate = rate)
+    if (return_headers) result$headers <- raw_headers
     return(result)
   }
-  result <- list(status = 0L, body = if (parse_json) list() else "", error = "requisição sem resposta")
-  if (return_headers) result$headers <- character()
-  result
 }
 
-# Codifica cada componente de um caminho da API sem transformar as barras
-# separadoras em texto, preservando a estrutura esperada pelo GitHub.
 encode_path <- function(path) {
   parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
   paste(vapply(parts, utils::URLencode, character(1L), reserved = TRUE), collapse = "/")
 }
 
-# Monta a URL da API do GitHub com query parameters, delegando a autenticação,
-# tentativas e interpretação da resposta ao cliente HTTP compartilhado.
 github_api <- function(path, params = list(), token = "", return_headers = FALSE) {
   query <- if (length(params)) {
     paste(
@@ -427,38 +786,56 @@ github_api <- function(path, params = list(), token = "", return_headers = FALSE
       collapse = "&"
     )
   } else ""
-  url <- paste0("https://api.github.com", path, if (nzchar(query)) paste0("?", query) else "")
-  http_request(url, token = token, parse_json = TRUE, return_headers = return_headers)
+  base <- sub("/$", "", as.character(setting("api", "github_base", "https://api.github.com")))
+  url <- paste0(base, path, if (nzchar(query)) paste0("?", query) else "")
+  resource <- if (grepl("/search/", path, fixed = TRUE)) "search" else "core"
+  http_request(url, token = token, parse_json = TRUE, return_headers = return_headers, resource = resource)
 }
 
-# Baixa o conteúdo de um arquivo fixado por SHA de commit, evitando que o
-# estado atual do branch altere os documentos usados no snapshot histórico.
+# Usa o limite GraphQL separado para contar issues reais em lotes.
+github_graphql <- function(query, token = "", variables = list()) {
+  base <- sub("/$", "", as.character(setting("api", "github_graphql_base", "https://api.github.com/graphql")))
+  payload <- jsonlite::toJSON(list(query = query, variables = variables), auto_unbox = TRUE, null = "null", digits = 16)
+  response <- http_request(
+    base, token = token, parse_json = TRUE, resource = "graphql", method = "POST",
+    body_json = payload
+  )
+  errors <- response$body$errors %||% list()
+  if (length(errors)) {
+    messages <- vapply(errors, function(error) scalar_text(error$message, "erro GraphQL"), character(1L))
+    detail <- paste(unique(messages), collapse = "; ")
+    remaining <- suppressWarnings(as.numeric(response$rate$github_remaining %||% NA_real_))
+    response$error <- if ((!is.na(remaining) && remaining <= 0) || nzchar(api_rate_retry_at())) {
+      paste0("GraphQL rate limit: ", detail)
+    } else detail
+  }
+  response
+}
+
+# Usa o SHA do commit para manter os snapshots históricos imutáveis.
 github_raw <- function(repository, sha, path, token = "") {
-  url <- paste0("https://raw.githubusercontent.com/", repository, "/", sha, "/", encode_path(path))
-  response <- http_request(url, token = token, parse_json = FALSE)
+  base <- sub("/$", "", as.character(setting("api", "raw_base", "https://raw.githubusercontent.com")))
+  url <- paste0(base, "/", repository, "/", sha, "/", encode_path(path))
+  response <- http_request(url, token = token, parse_json = FALSE, resource = "raw")
   list(
     status = response$status,
     text = if (response$status == 200L) response$body else "",
-    note = if (response$status == 200L) "" else response$error
+    note = if (response$status == 200L) "" else response$error,
+    rate = response$rate %||% list()
   )
 }
 
-# Extrai apenas o nome final de um caminho Git, sem os diretórios anteriores.
-# É usado para aplicar regras pelo nome do arquivo independentemente de sua pasta.
 file_name <- function(path) {
   parts <- strsplit(path, "/", fixed = TRUE)[[1L]]
   parts[[length(parts)]]
 }
 
-# Verifica se o caminho aponta para um documento textual elegível à análise.
-# Arquivos binários e extensões não previstas são ignorados antes do download.
 is_text_document <- function(path) {
   lower <- tolower(path)
   name <- file_name(lower)
   name %in% c("readme", "license", "copying") || any(vapply(TEXT_EXTENSIONS, function(extension) endsWith(lower, extension), logical(1L)))
 }
 
-# Seleciona blobs textuais candidatos em ordem determinística.
 document_candidates <- function(tree) {
   entries <- tree$tree %||% list()
   if (!is.list(entries) || !length(entries)) return(list())
@@ -489,7 +866,6 @@ document_candidates <- function(tree) {
   values[order_index]
 }
 
-# Divide o documento em unidades curtas para a busca de evidências.
 text_units <- function(text) {
   if (is.null(text) || !nzchar(text)) return(character())
   value <- gsub("\\r", " ", text, fixed = TRUE)
@@ -498,7 +874,6 @@ text_units <- function(text) {
   units[nzchar(units)]
 }
 
-# Remove marcação antes da busca semântica.
 clean_for_matching <- function(text) {
   value <- gsub("https?://[^\\s\"')>]+", " ", text, perl = TRUE)
   value <- gsub("!\\[[^]]*\\]\\([^)]*\\)", " ", value, perl = TRUE)
@@ -507,7 +882,6 @@ clean_for_matching <- function(text) {
   trimws(gsub("\\s+", " ", value, perl = TRUE))
 }
 
-# Recorta uma evidência curta ao redor do termo encontrado.
 centered_snippet <- function(value, primary) {
   starts <- integer()
   ends <- integer()
@@ -525,7 +899,6 @@ centered_snippet <- function(value, primary) {
   trimws(substr(value, start, end))
 }
 
-# Procura a primeira janela que satisfaz a regra.
 find_evidence <- function(text_values, primary, context = character(), required_groups = list(), accepted = function(...) TRUE) {
   if (!length(text_values)) return("")
   for (index in seq_along(text_values)) {
@@ -542,7 +915,6 @@ find_evidence <- function(text_values, primary, context = character(), required_
   ""
 }
 
-# Valida evidência específica de C1.
 is_c1_evidence <- function(snippet) {
   concrete <- safe_grepl("\\b(?:email|e-mail|ip address|mailing address|cookies?|authentication credentials|license plate(?: data)?|health data|location data)\\b", snippet)
   named <- safe_grepl("\\b(?:personal|user|customer|usage|account) data\\b|\\bpersonal information\\b|\\bPII\\b|data subject", snippet)
@@ -550,12 +922,10 @@ is_c1_evidence <- function(snippet) {
   concrete || (named && processing)
 }
 
-# Valida evidência específica de C4.
 is_c4_evidence <- function(snippet) {
   safe_grepl("right[s]?\\s+(?:of|to)\\s+(?:data )?subjects?|right to (?:access|rectification|erasure|deletion|portability|object|withdraw)|data subject rights|your right|withdraw (?:your )?consent|(?:modify|access|retrieve|correct|delete)[^.;\\n]{0,100}personal data|users? can delete[^.;\\n]{0,100}(?:data|accounts?)|data deleted from", snippet)
 }
 
-# Procura diretamente um padrão no documento.
 direct_snippet <- function(text, pattern) {
   match <- tryCatch(regexpr(pattern, text, ignore.case = TRUE, perl = TRUE), error = function(...) -1L)
   if (length(match) && match[[1L]] > 0L) {
@@ -566,43 +936,36 @@ direct_snippet <- function(text, pattern) {
   ""
 }
 
-# Identifica documentos dedicados à privacidade.
 is_dedicated_privacy_document <- function(path) {
   safe_grepl("privacy|gdpr|data[-_ ]?protection|personal[-_ ]?data|cookie[-_ ]?policy", file_name(tolower(path)))
 }
 
-# Confirma o contexto de privacidade para C2-C6.
 has_privacy_criterion_context <- function(snippet, path) {
   is_dedicated_privacy_document(path) ||
     safe_grepl("privacy|gdpr|personal data|personal information|personally identifiable|\\bPII\\b|data subject|user data|customer data|private data|anonymous user data|license plate data", snippet) ||
     safe_grepl("security[-_ ]and[-_ ]privacy|privacy[-_ ]and[-_ ]security|(?:^|/)privacy(?:[-_/]|$)", path)
 }
 
-# Detecta menções apenas a dados anônimos.
 is_anonymous_only <- function(snippet) {
   if (!safe_grepl("\\b(?:anonymous|anonymized|anonymised) (?:user |usage )?data\\b", snippet)) return(FALSE)
   !safe_grepl("personal|personally identifiable|\\bPII\\b|data subject|email address|ip address|cookies?|license plate|authentication credentials", snippet)
 }
 
-# Detecta exclusões técnicas que não tratam de dados pessoais.
 is_false_deletion_context <- function(snippet) {
   (safe_grepl("jwt|auth[_ ]manager|revoke[_ ]token|token expiration|cookie deletion", snippet) &&
      !safe_grepl("(?:personal|user|customer|account) data|data deleted|delete accounts?|retention", snippet))
 }
 
-# Detecta compartilhamento de software sem divulgação de dados.
 is_false_sharing_context <- function(snippet) {
   software_only <- safe_grepl("shared librar|third[- ]party dependenc|share\\.sh|build_release.*share", snippet)
   data_disclosure <- safe_grepl("(?:share|transfer|disclos)[^.]{0,50}(?:personal|user|customer|usage|training|private)? ?data|(?:personal|user|customer|usage|training|private) data[^.]{0,50}(?:share|transfer|disclos)", snippet)
   software_only && !data_disclosure
 }
 
-# Identifica referências bibliográficas.
 is_bibliographic_context <- function(snippet) {
   safe_grepl("proceedings|conference|journal|association for computing machinery|\\bdoi\\b|\\bet al\\.|\\bvolume\\s+\\d|\\bpages?\\s+\\d", snippet)
 }
 
-# Identifica listas de links sem contexto operacional.
 is_external_resource_unit <- function(text) {
   has_link <- safe_grepl("https?://|!\\[|\\]\\(", text)
   if (!has_link) return(FALSE)
@@ -611,7 +974,6 @@ is_external_resource_unit <- function(text) {
   !safe_grepl(project_language, text)
 }
 
-# Confirma que a evidência se refere ao próprio projeto.
 is_project_contextual <- function(snippet, path, repository) {
   if (is_dedicated_privacy_document(path)) return(TRUE)
   if (safe_grepl("(?:^|/)privacy(?:[-_/]|$)|security[-_ ]and[-_ ]privacy|privacy[-_ ]and[-_ ]security", path)) return(TRUE)
@@ -626,7 +988,6 @@ is_project_contextual <- function(snippet, path, repository) {
   safe_grepl("privacy[- ]preserv|homomorphic encrypt|secure multi[- ]party|encrypted data|data never leaves|on[- ]device|training data[^.]{0,120}this project|redact[^.]{0,100}(?:private|personal) data|(?:protect|secure|sandbox)[^.]{0,100}(?:model|framework|application)|(?:model|framework|application)[^.]{0,100}(?:protect|secure|sandbox)", snippet)
 }
 
-# Filtra documentos relevantes para a classificação.
 relevant_documents <- function(documents) {
   markers <- c("privacy", "security", "gdpr", "data-protection", "personal-data", "privacy-policy", "terms", "legal", "compliance", "retention", "consent", "subprocessor")
   excluded <- c("dataset", "datasets", "test", "tests", "fixture", "fixtures", "sample", "samples", "output", "outputs", "example", "examples", "node_modules", "vendor", "dist", "build")
@@ -646,7 +1007,6 @@ relevant_documents <- function(documents) {
   values
 }
 
-# Recalcula C1-C7 e D1 e conserva a primeira evidência de cada critério.
 classify_documents <- function(documents, sha = "", repository = "") {
   evidence <- list()
   weak <- FALSE
@@ -662,7 +1022,6 @@ classify_documents <- function(documents, sha = "", repository = "") {
     if (!dedicated) values <- values[!vapply(values, is_external_resource_unit, logical(1L))]
     values <- vapply(values, clean_for_matching, character(1L))
     values <- values[nzchar(values)]
-    # A primeira evidência válida de cada critério é suficiente.
     for (code in names(RULES)) {
       if (!is.null(evidence[[code]])) next
       rule <- RULES[[code]]
@@ -680,10 +1039,8 @@ classify_documents <- function(documents, sha = "", repository = "") {
     }
   }
 
-  # D1 também pode vir de uma política explícita ou de um mecanismo de privacidade.
   d1_evidence <- if (length(evidence)) evidence[[1L]] else ""
   if (!nzchar(d1_evidence)) {
-    # Primeiro procura uma política ou aviso explícito.
     policy_phrase <- "privacy\\s+(?:policy|notice)|data\\s+protection\\s+(?:policy|notice)"
     for (document in documents) {
       if (scalar_int(document$status, 0L) != 200L) next
@@ -705,7 +1062,6 @@ classify_documents <- function(documents, sha = "", repository = "") {
     }
   }
   if (!nzchar(d1_evidence)) {
-    # Depois considera telemetria associada ao projeto.
     for (document in documents) {
       if (scalar_int(document$status, 0L) != 200L) next
       content <- clean_for_matching(scalar_text(document$text, ""))
@@ -718,7 +1074,6 @@ classify_documents <- function(documents, sha = "", repository = "") {
     }
   }
   if (!nzchar(d1_evidence)) {
-    # Por fim, procura mecanismos técnicos de privacidade.
     pattern <- "privacy[- ]preserv|privacy of synthetic data|measur(?:e|es|ed|ing)[^.]{0,100}privacy|redact[^.]{0,100}(?:private|personal) data|(?:personal data|PII|privacy information)[^.]{0,100}leak|leak(?:ing|age)?[^.]{0,100}(?:personal data|PII|privacy information)"
     for (document in documents) {
       if (scalar_int(document$status, 0L) != 200L) next
@@ -747,7 +1102,6 @@ classify_documents <- function(documents, sha = "", repository = "") {
   )
 }
 
-# Retorna o schema estável do CSV final.
 dataset_columns <- function() {
   c(
     "repository", "url", "name", "owner", "description", "language", "input_license_spdx_id", "input_license_name", "input_license_osi_approved", "stars", "issues", "created_at",
@@ -758,7 +1112,6 @@ dataset_columns <- function() {
   )
 }
 
-# Combina a amostra com os dois snapshots e recalcula a classificação.
 flatten_record <- function(row, record, row_number, source_hash) {
   input_fields <- c(
     repository = "repository", url = "url", name = "name", owner = "owner",
@@ -791,12 +1144,19 @@ flatten_record <- function(row, record, row_number, source_hash) {
 
   observations <- character()
   if (scalar_int(accessibility$http_status, 0L) != 200L) observations <- c(observations, "repositório não acessível na validação")
-  # O mesmo bloco trata os snapshots pré e pós.
   for (label in c("pre", "post")) {
     version <- record[[label]] %||% list()
     commit <- version$commit %||% list()
     documents <- relevant_documents(version$documents %||% list())
-    classification <- classify_documents(documents, scalar_text(commit$sha, ""), output$repository)
+    cached_classification <- version$classification %||% NULL
+    classification_version <- scalar_text(version$classification_rule_version, "")
+    # Cache sem versão explícita é compatível; versões diferentes são recalculadas.
+    classification <- if (is.list(cached_classification) &&
+                          (identical(classification_version, RULE_VERSION) || !nzchar(classification_version))) {
+      cached_classification
+    } else {
+      classify_documents(documents, scalar_text(commit$sha, ""), output$repository)
+    }
     prefix <- paste0(label, "_")
     output[[paste0(prefix, "cutoff")]] <- if (label == "pre") PRE_UNTIL else POST_UNTIL
     output[[paste0(prefix, "commit_sha")]] <- scalar_text(commit$sha, "")
@@ -821,7 +1181,6 @@ flatten_record <- function(row, record, row_number, source_hash) {
   output[dataset_columns()]
 }
 
-# Verifica se o registro tem os dois snapshots completos.
 is_complete_record <- function(record) {
   pre <- record$pre %||% list()
   post <- record$post %||% list()
@@ -830,7 +1189,6 @@ is_complete_record <- function(record) {
     scalar_int(pre$tree_request_status, 0L) == 200L && scalar_int(post$tree_request_status, 0L) == 200L
 }
 
-# Calcula um percentil usando a interpolação padrão do R.
 percentile_value <- function(values, probability) {
   values <- sort(as.numeric(values))
   values <- values[is.finite(values)]
@@ -838,7 +1196,6 @@ percentile_value <- function(values, probability) {
   as.numeric(stats::quantile(values, probability, type = 7, names = FALSE))
 }
 
-# Calcula o p-valor exato bicaudal de McNemar.
 exact_mcnemar <- function(b, c) {
   n <- b + c
   if (!n) return(1)
@@ -846,7 +1203,6 @@ exact_mcnemar <- function(b, c) {
   min(1, 2 * sum(vapply(0:lower, function(k) choose(n, k), numeric(1L))) / 2^n)
 }
 
-# Calcula o Wilcoxon pareado exato bicaudal.
 wilcoxon_exact <- function(differences) {
   values <- differences[differences != 0]
   n <- length(values)
@@ -876,7 +1232,6 @@ wilcoxon_exact <- function(differences) {
   )
 }
 
-# Estima um IC percentílico de 95% para a mediana por bootstrap determinístico.
 bootstrap_median_ci <- function(values, seed = 20260908L, repetitions = 10000L) {
   values <- as.numeric(values)
   if (!length(values)) return(c(NA_real_, NA_real_))
