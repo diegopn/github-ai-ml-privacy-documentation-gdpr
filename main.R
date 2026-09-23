@@ -74,10 +74,9 @@ stage_result <- function(label, status, started, finished, error = NULL) {
   result
 }
 
-run_stage <- function(label, action) {
+run_stage <- function(label, action, report_stage = TRUE) {
   started <- Sys.time()
-  cat(sprintf("\n=== %s ===\n  Início: %s\n",
-              label, format(started, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")))
+  if (report_stage) cat(sprintf("\n=== %s ===\n", label))
   write_run_status("running", current_stage = label)
   result <- tryCatch(
     force(action),
@@ -87,23 +86,21 @@ run_stage <- function(label, action) {
       stage_results[[length(stage_results) + 1L]] <<- stage_result(label, failure_state, started, finished, error)
       write_run_status(failure_state, conditionMessage(error))
       state_label <- if (identical(failure_state, "paused")) "pausada" else "interrompida"
-      elapsed_minutes <- as.numeric(difftime(finished, started, units = "mins"))
-      cat(sprintf("  Etapa %s após %.2f min.\n\n", state_label, elapsed_minutes))
+      if (report_stage) cat(sprintf("  Etapa %s.\n\n", state_label))
       stop(error)
     }
   )
   finished <- Sys.time()
   stage_results[[length(stage_results) + 1L]] <<- stage_result(label, "completed", started, finished)
   write_run_status("running")
-  cat(sprintf("  Etapa concluída em %.2f min.\n\n",
-              as.numeric(difftime(finished, started, units = "mins"))))
   invisible(result)
 }
 
 render_site <- function() {
   if (!nzchar(Sys.which("quarto"))) stop("Quarto não encontrado no PATH; ele é necessário para gerar o site.")
-  exit_status <- system2("quarto", "render")
-  if (!identical(as.integer(exit_status), 0L)) stop(sprintf("Quarto terminou com código %d.", exit_status))
+  exit_status <- suppressWarnings(system2("quarto", "render", stdout = FALSE, stderr = FALSE))
+  if (!identical(as.integer(exit_status), 0L)) stop("Não foi possível gerar o site com o Quarto.", call. = FALSE)
+  cat("Site gerado.\n")
   invisible(TRUE)
 }
 
@@ -115,7 +112,6 @@ assert_collection_ready <- function() {
     stop("A coleta ainda não foi executada. Use Rscript main.R --select.", call. = FALSE)
   }
   assert_checkpoint_complete(sample, checkpoint, sha256_file(sample_path()))
-  cat(sprintf("  Coleta validada: %d repositórios prontos para análise.\n", nrow(sample)))
   invisible(TRUE)
 }
 
@@ -143,7 +139,7 @@ execute_pipeline <- function(mode) {
   for (index in seq_along(stages)) {
     stage <- stages[[index]]
     label <- sprintf("Etapa %d/%d — %s", index, length(stages), STAGE_LABELS[[stage]])
-    run_stage(label, pipeline_actions[[stage]]())
+    run_stage(label, pipeline_actions[[stage]](), report_stage = !identical(stage, "site"))
   }
   invisible(TRUE)
 }
@@ -159,19 +155,11 @@ run_app <- function() {
     write_run_status("running")
     execute_pipeline(main_options$mode)
     write_run_status("completed")
-    cat("\n=== RESUMO DA EXECUÇÃO ===\n")
-    for (result in stage_results) {
-      cat(sprintf("  [OK] %s — %.2f min\n", result$stage, result$elapsed_seconds / 60))
-    }
-    total_minutes <- as.numeric(difftime(Sys.time(), run_started, units = "mins"))
-    cat(sprintf("  Resultado: concluído\n  Tempo total: %.2f min\n  Detalhes: %s\n",
-                total_minutes, project_relative(status_path)))
+    cat("Execução concluída.\n")
   }, error = function(error) {
     state <- pipeline_error_state()
     write_run_status(state, conditionMessage(error))
-    cat(sprintf("\nExecução %s.\n  Detalhes: %s\n",
-                if (identical(state, "paused")) "pausada" else "interrompida",
-                project_relative(status_path)))
+    cat(sprintf("Execução %s.\n", if (identical(state, "paused")) "pausada" else "interrompida"))
     stop(conditionMessage(error), call. = FALSE)
   }, finally = {
     release_file_lock(run_lock_path)

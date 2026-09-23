@@ -525,26 +525,17 @@ api_wait_for_slot <- function(resource = "core") {
   delay <- wait$delay
   max_wait <- as.numeric(setting("api", "max_rate_wait_seconds", 7200))
   if (is.finite(max_wait) && delay > max_wait) {
-    stop(sprintf("Limite da API do GitHub ainda bloqueado por aproximadamente %.0f segundos; tente uma nova execução após o reset.", delay), call. = FALSE)
+    stop("Limite da API do GitHub ainda ativo; aguarde o reset antes de executar novamente.", call. = FALSE)
   }
   remaining <- delay
   report_wait <- wait$rate_limit_delay > wait$interval_delay + 0.5
   if (remaining > 0 && report_wait) {
-    retry_at <- Sys.time() + remaining
-    cat(sprintf(
-      "GitHub API | recurso: %s | limite ativo\n  Nova tentativa estimada: %s UTC (em %.0f s)\n",
-      resource,
-      format(retry_at, tz = "UTC", format = "%Y-%m-%d %H:%M:%S"),
-      remaining
-    ))
+    cat(sprintf("GitHub API (%s): limite ativo; aguardando renovação.\n", resource))
   }
   while (remaining > 0) {
     chunk <- min(30, remaining)
     Sys.sleep(chunk)
     remaining <- remaining - chunk
-    if (remaining > 0 && report_wait) {
-      cat(sprintf("  GitHub API | recurso: %s | aguardando reset: ~%.0f s\n", resource, remaining))
-    }
   }
   invisible(TRUE)
 }
@@ -739,10 +730,8 @@ http_request <- function(url, token = "", parse_json = TRUE, max_attempts = NULL
       next
     }
     if (retryable && attempt < max_attempts && (elapsed + delay) <= retry_budget) {
-      remaining_budget <- max(0, retry_budget - elapsed)
-      cat(sprintf("GitHub API | resposta transitória HTTP %s\n  Nova tentativa: %d/%d em %.0f s\n",
-                  ifelse(is.na(status), "transporte", status), attempt, max_attempts - 1L,
-                  min(delay, remaining_budget)))
+      cat(sprintf("GitHub API: resposta transitória HTTP %s; nova tentativa %d/%d.\n",
+                  ifelse(is.na(status), "transporte", status), attempt, max_attempts - 1L))
       remaining_sleep <- delay
       while (remaining_sleep > 0) {
         chunk <- min(60, remaining_sleep)

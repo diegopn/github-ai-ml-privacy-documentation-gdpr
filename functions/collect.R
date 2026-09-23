@@ -151,26 +151,16 @@ run_collection <- function(options) {
   checkpoint <- file.path(output_dir, "repository_results.jsonl")
   if (isTRUE(options$fresh) && file.exists(checkpoint)) {
     unlink(checkpoint)
-    cat(sprintf("Checkpoint anterior removido; iniciando coleta limpa.\n  Arquivo: %s\n",
-                normalizePath(checkpoint, mustWork = FALSE)))
   }
   cached <- index_records(read_jsonl(checkpoint))
   repositories <- unique(as.character(sample$repository))
   pending <- repositories[!vapply(repositories, function(repository) is_reusable(cached[[repository]], source_hash), logical(1L))]
-  cat(sprintf(
-    "Coleta histórica\n  Amostra:     %d repositórios\n  Checkpoint:  %d registros\n  Pendentes:   %d repositórios\n  Períodos:    pré %s | pós %s\n  Execução:    sequencial\n",
-    nrow(sample), length(cached), length(pending), PRE_UNTIL, POST_UNTIL
-  ))
   if (length(pending)) {
     token <- Sys.getenv("GITHUB_TOKEN", unset = "")
     if (!nzchar(token)) token <- read_dotenv_token()
     if (!nzchar(token)) stop("GITHUB_TOKEN não encontrado no ambiente ou em .env.")
-    tracker <- new.env(parent = emptyenv())
-    tracker$started <- Sys.time()
-    tracker$last_report <- Sys.time()
-    completed <- 0L
-    incomplete <- 0L
-    cat(sprintf("\nIniciando coleta de %d repositórios.\n", length(pending)))
+    last_report <- Sys.time()
+    completed_before <- length(repositories) - length(pending)
     for (index in seq_along(pending)) {
       repository <- pending[[index]]
       row <- sample[match(repository, sample$repository), , drop = FALSE]
@@ -182,34 +172,16 @@ run_collection <- function(options) {
         }
       )
       write_jsonl(list(record), checkpoint, append = TRUE)
-      is_failure <- !is.null(record$fatal_error) || !is_complete_record(record)
-      if (is_failure) incomplete <- incomplete + 1L else completed <- completed + 1L
-      if (index == 1L || index == length(pending) || index %% 10L == 0L ||
-          as.numeric(difftime(Sys.time(), tracker$last_report, units = "secs")) >= 60) {
-        elapsed_seconds <- as.numeric(difftime(Sys.time(), tracker$started, units = "secs"))
-        elapsed_minutes <- elapsed_seconds / 60
-        remaining_minutes <- if (elapsed_seconds > 0) {
-          (length(pending) - index) * elapsed_seconds / index / 60
-        } else {
-          NA_real_
-        }
-        estimate <- if (is.finite(remaining_minutes)) sprintf("%.1f min", remaining_minutes) else "calculando"
-        cat(sprintf(
-          "\n  Progresso: %d/%d | completos: %d | incompletos: %d\n  Atual: %s — %s\n  Tempo: %.1f min decorridos | restante estimado: %s\n",
-          index, length(pending), completed, incomplete,
-          repository, if (is_failure) "INCOMPLETO" else "OK", elapsed_minutes, estimate
-        ))
-        tracker$last_report <- Sys.time()
+      now <- Sys.time()
+      if (index == length(pending) || as.numeric(difftime(now, last_report, units = "secs")) >= 60) {
+        cat(sprintf("Repositórios processados: %d/%d\n",
+                    completed_before + index, length(repositories)))
+        last_report <- now
       }
     }
-    cat(sprintf(
-      "\nResumo da coleta\n  Processados:  %d/%d repositórios\n  Completos:    %d\n  Incompletos:  %d\n",
-      length(pending), length(pending), completed, incomplete
-    ))
   } else {
-    cat("\nColeta histórica\n  Nenhum repositório pendente; resultados do checkpoint local mantidos.\n")
+    cat(sprintf("Repositórios processados: %d/%d\n", length(repositories), length(repositories)))
   }
-  cat(sprintf("  Checkpoint salvo: %s\n", normalizePath(checkpoint, mustWork = FALSE)))
   assert_checkpoint_complete(sample, checkpoint, source_hash)
   invisible(checkpoint)
 }

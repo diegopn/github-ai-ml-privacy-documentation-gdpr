@@ -95,8 +95,7 @@ pause_selection_state <- function(state, error) {
   state$error <- conditionMessage(error)
   state$rate_limit_retry_at <- api_rate_retry_at()
   atomic_write_json(state, selection_state_path(), pretty = TRUE)
-  cat(sprintf("\nSeleção pausada: limite da API do GitHub atingido.\n  Nova tentativa possível após: %s\n  A próxima execução começará do zero.\n",
-              scalar_text(state$rate_limit_retry_at, "o reset informado pelo GitHub")))
+  cat("Seleção pausada pelo limite da API do GitHub. A próxima execução começará do zero.\n")
   invisible(state)
 }
 
@@ -206,8 +205,6 @@ count_real_issues_batch <- function(repositories, token, batch_size = 50L) {
   for (batch_index in seq_along(starts)) {
     start <- starts[[batch_index]]
     batch <- repositories[start:min(length(repositories), start + batch_size - 1L)]
-    cat(sprintf("  Issues via GraphQL | lote %02d/%02d | consultando %d repositórios\n",
-                batch_index, length(starts), length(batch)))
     aliases <- paste0("r", seq_along(batch))
     fields <- vapply(seq_along(batch), function(index) {
       parts <- strsplit(batch[[index]], "/", fixed = TRUE)[[1L]]
@@ -227,7 +224,6 @@ count_real_issues_batch <- function(repositories, token, batch_size = 50L) {
       node <- data[[aliases[[index]]]] %||% list()
       issue_counts[[batch[[index]]]] <- scalar_int((node$issues %||% list())$totalCount, 0L)
     }
-    cat(sprintf("  Lote %02d/%02d | concluído\n\n", batch_index, length(starts)))
   }
   issue_counts
 }
@@ -303,15 +299,8 @@ partition_topic_query <- function(topic, start_date = SELECTION_CREATED_START,
 
 search_by_topic <- function(topic, token) {
   partitions <- partition_topic_query(topic, token = token)
-  expected_total <- sum(vapply(partitions, function(partition) scalar_int(partition$total_count, 0L), integer(1L)))
-  page_total <- sum(vapply(partitions, function(partition) {
-    count <- scalar_int(partition$total_count, 0L)
-    if (count == 0L) 0L else as.integer(ceiling(count / SELECTION_SEARCH_PAGE_SIZE))
-  }, integer(1L)))
   repositories <- list()
   partition_audit <- list()
-  pages_completed <- 0L
-  downloaded_total <- 0L
   for (partition_index in seq_along(partitions)) {
     partition <- partitions[[partition_index]]
     total <- scalar_int(partition$total_count, 0L)
@@ -334,12 +323,6 @@ search_by_topic <- function(topic, token) {
       }
       repositories <- c(repositories, items)
       downloaded <- downloaded + length(items)
-      pages_completed <- pages_completed + 1L
-      downloaded_total <- downloaded_total + length(items)
-      if (pages_completed == 1L || pages_completed == page_total || pages_completed %% 5L == 0L) {
-        cat(sprintf("    Página     %d/%d | baixados %d/%d\n",
-                    pages_completed, page_total, downloaded_total, expected_total))
-      }
     }
     if (downloaded != total) {
       stop(sprintf("A consulta retornou %d de %d resultados esperados: %s", downloaded, total, partition$query), call. = FALSE)
@@ -363,15 +346,9 @@ search_candidates <- function(token) {
   candidates <- list()
   names_in_order <- character()
   topic_audit <- list()
-  cat(sprintf(
-    "Descoberta GitHub\n  Tópicos: %d | criação: %s a %s | mínimo: %d estrelas\n",
-    length(SELECTION_TOPICS), SELECTION_CREATED_START, SELECTION_CREATED_END,
-    SELECTION_MIN_STARS
-  ))
   for (topic_index in seq_along(SELECTION_TOPICS)) {
     topic <- SELECTION_TOPICS[[topic_index]]
-    cat(sprintf("\nBusca %02d/%02d | tópico: %s\n", topic_index, length(SELECTION_TOPICS), topic))
-    candidates_before <- length(candidates)
+    cat(sprintf("Busca %d/%d | tópico: %s\n", topic_index, length(SELECTION_TOPICS), topic))
     result <- search_by_topic(topic, token)
     topic_audit[[length(topic_audit) + 1L]] <- result$audit
     for (repository in result$repositories) {
@@ -384,9 +361,7 @@ search_candidates <- function(token) {
         candidates[[full_name]]$topics <- unique(c(candidates[[full_name]]$topics, topic))
       }
     }
-    cat(sprintf("    Concluído  %d resultados\n    ÚNICOS NOVOS: +%d | ÚNICOS ACUMULADOS: %d\n",
-                length(result$repositories), length(candidates) - candidates_before,
-                length(candidates)))
+    cat(sprintf("  Resultado: %d repositórios encontrados.\n", length(result$repositories)))
   }
   list(
     candidates = unname(candidates[names_in_order]),
@@ -425,7 +400,7 @@ candidate_passes_static_filters <- function(candidate, approved_ids) {
 }
 
 reject_selection <- function(reason) {
-  cat(sprintf("  Resultado: [REJEITADO]\n    Motivo: %s\n", reason))
+  invisible(NULL)
 }
 
 selection_rate_limit_error <- function(error) {
@@ -632,8 +607,6 @@ write_selection <- function(records, path) {
     ),
     hash_path
   )
-  cat(sprintf("\nAmostra selecionada: %d repositórios\n  Arquivo: %s\n",
-              length(records), normalizePath(path, mustWork = FALSE)))
   list(path = path, sample_sha256 = sha256_file(path), rows = nrow(data))
 }
 
@@ -650,15 +623,13 @@ run_full_selection <- function(output, token, approved_ids, selection_run_id = "
   progress <- read_selection_candidates_checkpoint(state)
   if (is.null(progress)) {
     found <- search_candidates(token)
-    cat(sprintf("\nCANDIDATOS ÚNICOS PARA AVALIAÇÃO: %d\n", length(found$candidates)))
     write_selection_candidates_checkpoint(found, state)
   } else {
     found <- progress
-    cat(sprintf("\nCANDIDATOS ÚNICOS PARA AVALIAÇÃO: %d\n  Origem: checkpoint local\n",
-                length(found$candidates)))
   }
   candidates <- found$candidates
   if (!length(candidates)) stop("A seleção ampliada não encontrou candidatos.", call. = FALSE)
+  cat(sprintf("Repositórios únicos encontrados: %d\n", length(candidates)))
   state <- update_selection_progress_state(state, length(read_selection_evaluations()), length(candidates))
 
   issue_counts <- read_selection_issue_counts(state)
@@ -666,20 +637,30 @@ run_full_selection <- function(output, token, approved_ids, selection_run_id = "
   static_repositories <- vapply(static_candidates, function(candidate) scalar_text(candidate$repository$full_name, ""), character(1L))
   missing_issue_counts <- static_repositories[!(static_repositories %in% names(issue_counts %||% setNames(integer(), character())))]
   if (length(missing_issue_counts)) {
-    cat(sprintf("\nContagem de issues reais (GraphQL): %d repositórios\n", length(missing_issue_counts)))
     new_issue_counts <- count_real_issues_batch(missing_issue_counts, token)
     issue_counts <- c(issue_counts %||% setNames(integer(), character()), new_issue_counts)
     write_selection_issue_counts(state, issue_counts)
   }
+  passed_issue_filter <- vapply(static_repositories, function(repository) {
+    count <- if (!is.null(issue_counts) && repository %in% names(issue_counts)) issue_counts[[repository]] else 0L
+    scalar_int(count, 0L) >= SELECTION_MIN_ISSUES
+  }, logical(1L))
+  cat(sprintf("Filtro de issues: %d entraram → %d permaneceram.\n",
+              length(static_repositories), sum(passed_issue_filter)))
 
   evaluations <- read_selection_evaluations()
   evaluated_indices <- suppressWarnings(as.integer(names(evaluations)))
   evaluated_indices <- evaluated_indices[!is.na(evaluated_indices) & evaluated_indices >= 1L & evaluated_indices <= length(candidates)]
   pending <- setdiff(seq_along(candidates), evaluated_indices)
+  approved_count <- sum(vapply(seq_along(candidates), function(index) {
+    evaluation <- evaluations[[as.character(index)]]
+    is.list(evaluation) && identical(scalar_text(evaluation$status, ""), "selected")
+  }, logical(1L)))
+  last_report <- Sys.time()
+  evaluated_now <- 0L
   for (index in pending) {
     candidate <- candidates[[index]]
     name <- scalar_text(candidate$repository$full_name, "")
-    cat(sprintf("[%d/%d] Analisando %s\n", index, length(candidates), name))
     issue_count <- if (!is.null(issue_counts) && name %in% names(issue_counts)) issue_counts[[name]] else NULL
     result <- tryCatch(
       evaluate_candidate(candidate, approved_ids, token, issue_count = issue_count),
@@ -694,10 +675,16 @@ run_full_selection <- function(output, token, approved_ids, selection_run_id = "
       if (is.null(result)) "não atende a um critério de elegibilidade" else ""
     )
     evaluations[[as.character(index)]] <- evaluation
-    if (!is.null(result)) cat("  Resultado: [APROVADO]\n")
+    if (!is.null(result)) approved_count <- approved_count + 1L
     state <- update_selection_progress_state(state, length(evaluations), length(candidates), name)
-    cat("\n")
+    evaluated_now <- evaluated_now + 1L
+    now <- Sys.time()
+    if (evaluated_now == length(pending) || as.numeric(difftime(now, last_report, units = "secs")) >= 60) {
+      cat(sprintf("Repositórios aprovados: %d/%d\n", approved_count, length(candidates)))
+      last_report <- now
+    }
   }
+  if (!length(pending)) cat(sprintf("Repositórios aprovados: %d/%d\n", approved_count, length(candidates)))
   selected <- lapply(seq_along(candidates), function(index) {
     evaluation <- evaluations[[as.character(index)]]
     if (is.list(evaluation) && identical(scalar_text(evaluation$status, ""), "selected")) evaluation$record else NULL
@@ -716,7 +703,6 @@ run_full_selection <- function(output, token, approved_ids, selection_run_id = "
   audit_path <- resolve_project_path(selection_audit_path())
   dir.create(dirname(audit_path), recursive = TRUE, showWarnings = FALSE)
   atomic_write_json(found$audit, audit_path, pretty = TRUE)
-  cat(sprintf("Manifesto da busca salvo: %s\n", normalizePath(audit_path, mustWork = FALSE)))
   selection_written$evaluated_candidates <- length(candidates)
   selection_written$total_candidates <- length(candidates)
   invisible(selection_written)

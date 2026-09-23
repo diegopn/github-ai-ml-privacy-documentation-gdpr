@@ -14,9 +14,6 @@ records_to_dataset <- function(sample, records, source_hash) {
     repository <- scalar_text(row$repository, "")
     record <- by_repository[[repository]] %||% missing_record(row)
     rows[[index]] <- flatten_record(row, record, index + 1L, source_hash)
-    if (index == 1L || index %% 25L == 0L || index == nrow(sample)) {
-      cat(sprintf("  Classificação: %d/%d repositórios\n", index, nrow(sample)))
-    }
   }
   columns <- dataset_columns()
   values <- lapply(columns, function(column) {
@@ -291,15 +288,10 @@ run_analysis <- function(options) {
   paths <- output_paths(options$output %||% output_root_path())
   for (directory in paths[-1L]) dir.create(directory, recursive = TRUE, showWarnings = FALSE)
 
-  cat("Preparando análise offline\n  Lendo amostra e checkpoint...\n")
   sample <- read_sample(input_path)
   validate_open_source_sample(sample)
   source_hash <- sha256_file(input_path)
   records <- read_jsonl(raw_path)
-  cat(sprintf(
-    "  Registros carregados: %d\n  Classificações: reutilizando as compatíveis e recalculando apenas as incompatíveis.\n",
-    length(records)
-  ))
   flattened <- records_to_dataset(sample, records, source_hash)
   dataset <- flattened$data
 
@@ -311,7 +303,6 @@ run_analysis <- function(options) {
   )
   write.csv(dataset, file.path(paths$tables, "final_privacy_gdpr_dataset.csv"), row.names = FALSE, fileEncoding = "UTF-8", na = "")
   write_positive_evidence(file.path(paths$tables, "positive_evidence.csv"), dataset)
-  cat("\nCalculando estatísticas e gravando resultados...\n")
   stats <- calculate_statistics(records, dataset, sample, input_path)
   write_derived_outputs(paths, stats, dataset)
   jsonlite::write_json(stats, file.path(paths$metadata, "statistics.json"), auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
@@ -319,11 +310,23 @@ run_analysis <- function(options) {
   write_report(file.path(paths$reports, "privacy_documentation_experiment_gdpr.md"), stats, sample, source_hash, dataset, input_path, raw_path)
   write_manifest(file.path(paths$metadata, "manifest.json"), stats, input_path, raw_path)
   writeLines(capture.output(sessionInfo()), file.path(paths$metadata, "session_info.txt"), useBytes = TRUE)
+  rq1 <- stats$rq1_mcnemar
+  rq2 <- stats$rq2_wilcoxon
   cat(sprintf(
-    "\nResumo da análise\n  Amostra (linhas):  %d\n  Pares completos:   %d\n  McNemar exato:     p = %.15g\n  Wilcoxon exato:    p = %.15g\n",
+    paste0(
+      "\nResultados finais\n",
+      "Repositórios analisados: %d | pares completos: %d\n",
+      "D1 = 1: %d/%d (%.2f%%) → %d/%d (%.2f%%)\n",
+      "Diferença D1: %+.2f p.p. | McNemar exato: p = %.6g\n",
+      "Score médio (0–7): %.3f → %.3f | Wilcoxon exato: p = %.6g\n"
+    ),
     nrow(sample), stats$complete_pairs,
-    stats$rq1_mcnemar$exact_mcnemar_p_two_sided,
-    stats$rq2_wilcoxon$wilcoxon_signed_rank_exact$p_two_sided_exact
+    rq1$pre_ones, rq1$n_complete_pairs, 100 * rq1$pre_proportion,
+    rq1$post_ones, rq1$n_complete_pairs, 100 * rq1$post_proportion,
+    100 * rq1$paired_proportion_difference_post_minus_pre,
+    rq1$exact_mcnemar_p_two_sided,
+    rq2$pre_mean, rq2$post_mean,
+    rq2$wilcoxon_signed_rank_exact$p_two_sided_exact
   ))
   invisible(stats)
 }
