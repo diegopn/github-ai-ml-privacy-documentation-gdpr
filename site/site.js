@@ -63,10 +63,18 @@
   }
 
   function formatP(value, language = currentLanguage()) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return "—";
+    if (numeric > 0 && numeric < 0.001) {
+      return new Intl.NumberFormat(language, {
+        notation: "scientific",
+        maximumSignificantDigits: 3
+      }).format(numeric);
+    }
     return new Intl.NumberFormat(language, {
       minimumFractionDigits: 6,
       maximumFractionDigits: 6
-    }).format(Number(value || 0));
+    }).format(numeric);
   }
 
   function renderTemplate(key, copy, language) {
@@ -149,6 +157,16 @@
       element.dataset.i18nKey = key;
       if (copy.tableLabels[key]) element.textContent = copy.tableLabels[key];
     });
+    const pValues = {
+      "p exato de McNemar bicaudal": data().mcnemar_p,
+      "p exato de Wilcoxon bicaudal": data().wilcoxon_p
+    };
+    document.querySelectorAll("table tbody tr").forEach((row) => {
+      const value = pValues[row.cells[0]?.dataset.i18nKey];
+      if (value !== undefined && row.cells.length > 1) {
+        row.cells[row.cells.length - 1].textContent = formatP(value, language);
+      }
+    });
 
     setText("#TOC #toc-title", copy.toc, false);
     const tocLabels = {
@@ -172,9 +190,11 @@
       ["#resultados", copy.navResults], ["#dados", copy.navData],
       ["#metodologia", copy.navMethodology], ["#reproducao", copy.navReproduction]
     ];
-    document.querySelectorAll("#quarto-header .nav-link").forEach((link) => {
+    document.querySelectorAll("#quarto-header .nav-link").forEach((link, index) => {
       const href = link.getAttribute("href") || "";
-      if (href.endsWith("index.qmd") || href.endsWith("index.html") || href === "./") link.textContent = copy.navHome;
+      if (index === 0 || href.endsWith("index.qmd") || href.endsWith("index.html") || href === "./") {
+        link.textContent = copy.navHome;
+      }
       nav.forEach(([fragment, label]) => {
         if (href.includes(fragment)) link.textContent = label;
       });

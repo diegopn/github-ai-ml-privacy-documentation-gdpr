@@ -14,7 +14,14 @@ topic_values <- topic_values[nzchar(topic_values)]
 topic_counts <- sort(table(topic_values), decreasing = TRUE)
 selection_audit_available <- file.exists("outputs/metadata/selection_search_manifest.json")
 
-fmt_p <- function(value) formatC(as.numeric(value), format = "f", digits = 6L, decimal.mark = ",", big.mark = ".")
+fmt_p <- function(value) {
+  value <- as.numeric(value)
+  if (!is.finite(value)) return("NA")
+  if (value > 0 && value < 0.001) {
+    return(formatC(value, format = "e", digits = 2L, decimal.mark = ","))
+  }
+  formatC(value, format = "f", digits = 6L, decimal.mark = ",", big.mark = ".")
+}
 r1 <- stats$rq1_mcnemar
 r2 <- stats$rq2_wilcoxon
 w <- r2$wilcoxon_signed_rank_exact
@@ -225,7 +232,8 @@ de junho de 2026. A unidade de análise é o repositório público de IA/ML.
 :::
 
 ```{mermaid}
-flowchart LR
+%%{init: {"themeVariables": {"fontSize": "18px", "fontFamily": "Montserrat, Arial, sans-serif"}, "flowchart": {"nodeSpacing": 64, "rankSpacing": 88, "diagramPadding": 28, "wrappingWidth": 300, "minNodeWidth": 280}}}%%
+flowchart TD
   A[Busca por 24 tópicos IA/ML] --> B[Particionamento temporal até 1.000 resultados]
   B --> C[Filtros de seleção preservados]
   C --> D[Amostra congelada]
