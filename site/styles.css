@@ -672,26 +672,26 @@ pre.sourceCode code *,
   border-left-color: var(--language-active) !important;
 }
 
-.mermaid .node rect,
-.mermaid .node polygon,
-.mermaid .node circle {
+svg.mermaid-js .node rect,
+svg.mermaid-js .node polygon,
+svg.mermaid-js .node circle {
   fill: var(--accent-box) !important;
   stroke: var(--accent-stroke) !important;
 }
 
-.mermaid .node .label,
-.mermaid .nodeLabel {
+svg.mermaid-js .node .label,
+svg.mermaid-js .nodeLabel {
   color: var(--accent-box-text) !important;
   fill: var(--accent-box-text) !important;
 }
 
-.mermaid .flowchart-link,
-.mermaid .edgePath path,
-.mermaid marker path {
+svg.mermaid-js .flowchart-link,
+svg.mermaid-js .edgePath path,
+svg.mermaid-js marker path {
   stroke: var(--accent-flow) !important;
 }
 
-.mermaid marker path {
+svg.mermaid-js marker path {
   fill: var(--accent-flow) !important;
 }
 
