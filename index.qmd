@@ -403,11 +403,23 @@ evidências positivas, as estatísticas, os gráficos e os relatórios. O arquiv
 ## Referências metodológicas {#referencias-metodologicas}
 
 ::: {data-i18n="referencesText"}
-As referências que fundamentam a seleção dos tópicos e a discussão de validade
-estão na [bibliografia metodológica do projeto](inputs/reference/literature_methods.md),
-incluindo Gonzalez et al. (2020), Openja et al. (2024), Latendresse et al.
-(2024), De Martino et al. (2025), Yang et al. (2023), Biswas et al. (2019) e
-Kalliamvakou et al. (2014).
+Os 24 termos pesquisados servem exclusivamente para descobrir repositórios do
+GitHub. Doze etiquetas são enumeradas por Openja et al. (2024);
+natural-language-processing é citado por Gonzalez, Zimmermann e Nagappan
+(2020); e as onze escolhas restantes do protocolo são nlp mais dez termos
+adicionais. O CSV distingue a origem histórica da escolha do apoio conceitual.
+Kumar (2024) apoia o conceito de LLMs; Vaswani et al. (2017), Transformers;
+Feuerriegel et al. (2024), IA generativa e multimodalidade; Ho et al. (2020),
+difusão; Lewis et al. (2020), RAG; e Wang et al. (2024), agentes. Essas fontes
+conceituais não forneceram a lista de busca.
+
+Gonzalez et al. (2020) é o estudo de Danielle Gonzalez, Thomas Zimmermann e
+Nachiappan Nagappan sobre repositórios do GitHub. É distinto do trabalho de
+Alexandra González et al. (2024) sobre repositórios do Hugging Face, que está
+fora do escopo e não fundamenta este protocolo. O artigo 99(2) do Regulamento
+(UE) 2016/679 estabelece a data de aplicação da GDPR; McNemar (1947), Wilcoxon
+(1945) e Efron (1979) fundamentam os métodos estatísticos efetivamente usados.
+Consulte a [bibliografia e proveniência metodológica](inputs/reference/literature_methods.md).
 :::
 
 <script src="site/site.js"></script>

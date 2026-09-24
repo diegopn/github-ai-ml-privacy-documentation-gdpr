@@ -1,25 +1,25 @@
-topic_label,source,role_in_strategy
-artificial-intelligence,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",core area
-deep-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",core area
-machine-learning,"Gonzalez, Zimmermann and Nagappan (2020); Openja et al. (2024)",core area
-deep-neural-network,"Openja et al. (2024)",subdomain
-reinforcement-learning,"Openja et al. (2024)",subdomain
-computer-vision,"Openja et al. (2024)",subdomain
-image-processing,"Openja et al. (2024)",subdomain
-neural-network,"Openja et al. (2024)",subdomain
-image-classification,"Openja et al. (2024)",subdomain
-convolutional-neural-networks,"Openja et al. (2024)",subdomain
-object-detection,"Openja et al. (2024)",subdomain
-machine-intelligence,"Openja et al. (2024)",subdomain
-natural-language-processing,"Openja et al. (2024)",subdomain
-nlp,"Openja et al. (2024)",alias
-large-language-model,"study search vocabulary",AI/ML technical term
-large-language-models,"study search vocabulary",AI/ML technical term
-llm,"study search vocabulary",AI/ML technical term
-transformer,"study search vocabulary",AI/ML technical term
-transformers,"study search vocabulary",AI/ML technical term
-generative-ai,"study search vocabulary",AI/ML technical term
-diffusion,"study search vocabulary",AI/ML technical term
-multimodal,"study search vocabulary",AI/ML technical term
-retrieval-augmented-generation,"study search vocabulary",AI/ML technical term
-ai-agents,"study search vocabulary",AI/ML technical term
+topic_label,historical_selection_origin,conceptual_support,search_role
+artificial-intelligence,Openja et al. (2024),,GitHub label enumerated by Openja
+deep-learning,Openja et al. (2024),,GitHub label enumerated by Openja
+machine-learning,Openja et al. (2024),,GitHub label enumerated by Openja
+deep-neural-network,Openja et al. (2024),,GitHub label enumerated by Openja
+reinforcement-learning,Openja et al. (2024),,GitHub label enumerated by Openja
+computer-vision,Openja et al. (2024),,GitHub label enumerated by Openja
+image-processing,Openja et al. (2024),,GitHub label enumerated by Openja
+neural-network,Openja et al. (2024),,GitHub label enumerated by Openja
+image-classification,Openja et al. (2024),,GitHub label enumerated by Openja
+convolutional-neural-networks,Openja et al. (2024),,GitHub label enumerated by Openja
+object-detection,Openja et al. (2024),,GitHub label enumerated by Openja
+machine-intelligence,Openja et al. (2024),,GitHub label enumerated by Openja
+natural-language-processing,"Gonzalez, Zimmermann and Nagappan (2020)",,GitHub label cited as an example by Gonzalez
+nlp,Study protocol,,Additional protocol choice; short form of natural-language-processing
+large-language-model,Study protocol,Kumar (2024),Additional protocol choice; LLM concept
+large-language-models,Study protocol,Kumar (2024),Additional protocol choice; LLM concept
+llm,Study protocol,Kumar (2024),Additional protocol choice; LLM concept
+transformer,Study protocol,Vaswani et al. (2017),Additional protocol choice; Transformer concept
+transformers,Study protocol,Vaswani et al. (2017),Additional protocol choice; Transformer concept
+generative-ai,Study protocol,Feuerriegel et al. (2024),Additional protocol choice; generative AI concept
+diffusion,Study protocol,Ho et al. (2020),Additional protocol choice; diffusion concept
+multimodal,Study protocol,Feuerriegel et al. (2024),Additional protocol choice; multimodality concept
+retrieval-augmented-generation,Study protocol,Lewis et al. (2020),Additional protocol choice; RAG concept
+ai-agents,Study protocol,Wang et al. (2024),Additional protocol choice; agent concept

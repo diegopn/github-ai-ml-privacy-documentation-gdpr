@@ -152,20 +152,34 @@ compilação gettext ou arquivos `.po`.
 
 ## Escopo e critérios
 
-A busca usa os 24 tópicos configurados em `settings.yml`. Os critérios de
+A unidade de análise é exclusivamente o repositório público do GitHub. O
+experimento compara a documentação versionada em cada repositório em dois
+snapshots: o último commit até 24/05/2018 23:59:59 UTC, antes da aplicação da
+GDPR, e o último commit até 30/06/2026 23:59:59 UTC. Não são analisadas outras
+plataformas ou coleções de artefatos.
+
+A busca usa os 24 tópicos configurados em settings.yml. Os critérios de
 elegibilidade são: repositório público, não fork, não arquivado, criado antes
 de 25/05/2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade
 de no mínimo 24 meses, atividade nos dois períodos históricos e licença
 SPDX/OSI aprovada.
 
+A proveniência separa a origem histórica da escolha do apoio conceitual. Doze
+etiquetas estão enumeradas por Openja et al. (2024); Gonzalez, Zimmermann e
+Nagappan (2020) citam natural-language-processing como exemplo de etiqueta
+relacionada a IA/ML. As outras onze escolhas do protocolo são nlp e dez termos
+adicionais. As fontes que explicam os conceitos desses dez termos não são a
+origem histórica da lista. O CSV registra esses papéis em colunas separadas.
+Nenhum desses trabalhos definiu conjuntamente os 24 termos ou os limiares de
+elegibilidade. Um tópico associado a um repositório é sinal de descoberta,
+não prova automática de seu escopo técnico.
+
 Cada consulta da Search API é particionada por data de criação quando necessário
 para respeitar o limite de 1.000 resultados. O manifesto
-`outputs/metadata/selection_search_manifest.json` registra as partições,
+outputs/metadata/selection_search_manifest.json registra as partições,
 contagens e páginas baixadas. A contagem de issues reais é feita em lotes pela
-GraphQL API, reduzindo chamadas individuais à Search API; o resultado continua
-sendo verificado junto aos demais critérios antes da aprovação. Tópicos são
-sinais de descoberta, não prova automática de que todo repositório seja um
-projeto de IA/ML.
+GraphQL API, reduzindo chamadas individuais à Search API; o resultado é
+verificado junto aos demais critérios antes da aprovação.
 
 ## Site
 
@@ -216,15 +230,12 @@ Este projeto é distribuído sob a [Licença MIT](LICENSE), mantida no arquivo
 
 ## Referências metodológicas
 
-- Gonzalez, Zimmermann e Nagappan (2020), *The State of the ML-universe* —
-  [DOI 10.1145/3379597.3387473](https://doi.org/10.1145/3379597.3387473).
-- Openja et al. (2024), *An Empirical Study of Testing Machine Learning in the
-  Wild* — [DOI 10.1145/3680463](https://doi.org/10.1145/3680463).
-- Latendresse et al. (2024), *An Exploratory Study on Machine Learning Model
-  Management* — [DOI 10.1145/3688841](https://doi.org/10.1145/3688841).
-- De Martino et al. (2025), *Into the ML-Universe* —
-  [DOI 10.1016/j.jss.2025.112471](https://doi.org/10.1016/j.jss.2025.112471).
-
-As referências bibliográficas que fundamentam a seleção dos tópicos e a
-discussão de validade estão no arquivo
-[`inputs/reference/literature_methods.md`](inputs/reference/literature_methods.md).
+Gonzalez, Zimmermann e Nagappan (2020) e Openja et al. (2024) têm função
+demonstrável na proveniência histórica dos tópicos. Kumar (2024), Vaswani et
+al. (2017), Feuerriegel et al. (2024), Ho et al. (2020), Lewis et al. (2020)
+e Wang et al. (2024) apoiam conceitos dos dez termos adicionais, sem fornecer
+a lista de busca. O Regulamento (UE) 2016/679 estabelece o marco temporal.
+McNemar (1947), Wilcoxon (1945) e Efron (1979) fundamentam, respectivamente,
+os testes pareados e o intervalo bootstrap usados na análise. A bibliografia,
+a função de cada fonte e a proveniência por tópico estão em
+[inputs/reference/literature_methods.md](inputs/reference/literature_methods.md).
