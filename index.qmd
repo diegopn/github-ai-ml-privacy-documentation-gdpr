@@ -5,7 +5,7 @@ subtitle: "Projetos open source de IA/ML identificados por busca temática"
 
 ```{r}
 stats <- jsonlite::read_json("outputs/metadata/statistics.json", simplifyVector = FALSE)
-settings <- yaml::read_yaml("settings.yml")
+settings <- yaml::read_yaml("config/settings.yml")
 sample <- read.csv("inputs/final/selected_repositories.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
 dataset <- read.csv("outputs/tables/final_privacy_gdpr_dataset.csv", stringsAsFactors = FALSE, check.names = FALSE, fileEncoding = "UTF-8")
 selection_topics <- as.character(unlist(settings$selection$topics, use.names = FALSE))
@@ -122,15 +122,8 @@ knitr::kable(topic_table, format = "html", caption = "Tópicos presentes na amos
 
 ### Presença documental (D1)
 
-```{r, echo=FALSE, fig.width=7, fig.height=4}
-barplot(
-  c(as.numeric(r1$pre_ones), as.numeric(r1$post_ones)),
-  names.arg = c("Pré-GDPR", "Pós-GDPR"),
-  ylab = "Repositórios com D1 = 1",
-  col = c("#f2a36b", "#c84b18"),
-  ylim = c(0, max(18, as.numeric(r1$post_ones) + 2)),
-  main = "Evidência documental de privacidade"
-)
+```{r, echo=FALSE}
+knitr::include_graphics("outputs/figures/d1_pre_post.png")
 ```
 
 | Medida | Resultado |
@@ -143,14 +136,8 @@ barplot(
 
 ### PDE Score
 
-```{r, echo=FALSE, fig.width=7, fig.height=4}
-barplot(
-  post_frequency,
-  names.arg = codes,
-  ylab = "Repositórios",
-  col = "#d85f2a",
-  main = "Critérios documentais no período pós-GDPR"
-)
+```{r, echo=FALSE}
+knitr::include_graphics("outputs/figures/criteria_post_gdpr.png")
 ```
 
 | Medida | Pré | Pós |
@@ -249,7 +236,7 @@ flowchart TD
 
 ::: {data-i18n-template="selection-description"}
 O seletor consulta `r length(selection_topics)` tópicos configurados em
-`settings.yml`, que abrangem áreas como visão computacional, processamento de
+`config/settings.yml`, que abrangem áreas como visão computacional, processamento de
 linguagem natural, detecção de objetos, LLMs, transformers, IA generativa,
 difusão, multimodalidade, RAG e agentes. Em seguida, aplica os critérios de
 visibilidade pública, licença SPDX/OSI aprovada, ausência de fork e
@@ -336,10 +323,9 @@ auditoria jurídica nem permitem atribuir causalidade exclusiva à GDPR.
 
 ::: {data-i18n="requirementsList"}
 - R 4.5 ou superior;
-- pacote `jsonlite` para o pipeline;
+- `R6`, `jsonlite` e `yaml` para o pipeline;
 - `knitr`, `rmarkdown` e Quarto para renderizar este site;
-- `yaml` para ler `settings.yml`;
-- `curl` para novas chamadas à API do GitHub;
+- executável `curl` disponível no PATH para novas chamadas à API do GitHub;
 - token `GITHUB_TOKEN` somente quando uma nova coleta for necessária.
 :::
 

@@ -16,47 +16,38 @@ original.
 ## Estrutura
 
 ```text
-functions/
-├── common.R                 regras, caminhos e funções compartilhadas
-├── cli.R                    opções e etapas do pipeline
-├── collect.R                coleta histórica e checkpoint de controle
-├── select_sample.R          seleção por tópicos e critérios do protocolo
-└── analyze.R                classificação final, dataset e estatísticas
-main.R                       entrada única com status por etapa
-inputs/
-├── raw/                     checkpoint bruto JSONL
-├── final/                   amostra congelada e seu hash
-└── reference/               tópicos e lista SPDX/OSI de referência
-outputs/
-├── tables/                  CSVs de amostra, dataset e estatísticas
-├── figures/                 gráficos derivados
-├── reports/                 relatórios em Markdown
-└── metadata/                JSON, RDS, manifesto e informações da sessão
-site/
-├── styles.css               estilos da página única
-├── site.js                  comportamento, tema e controles acessíveis
-├── theme-init.html          tema inicial antes do carregamento da página
-└── locales/                 textos em pt-BR e en-US (JSON)
-tests/
-└── test_contracts.R         testes locais dos contratos e regras
-index.qmd                    entrada do GitHub Pages e página completa
-settings.yml                caminhos, datas, alfa e critérios configuráveis
-inputs/reference/ai_ml_topics_used.csv
-                            tópicos usados na busca
-LICENSE                      licença MIT na raiz do projeto
+main.R                       composição e execução do pipeline
+config/settings.yml          parâmetros e caminhos do projeto
+src/
+├── app/                     CLI e coordenação das etapas
+├── config/                  leitura e validação da configuração
+├── clients/                 acesso à API do GitHub
+├── selection/               descoberta e filtro da amostra
+├── collection/              snapshots históricos e coleta documental
+├── domain/                  regras e classificação de privacidade
+├── data/                    transformação dos registros em dataset
+├── analysis/                estatística pareada
+├── reporting/               tabelas, gráficos e relatórios
+├── storage/                 leitura, escrita e validação de artefatos
+└── shared/                  conversões escalares usadas por módulos
+inputs/                      amostra, checkpoint e referências
+outputs/                     resultados derivados e manifestos
+site/                        estilos e comportamento da página
+tests/                      contratos do pipeline e dos cálculos
+index.qmd                    página Quarto na raiz
 ```
 
 ## Requisitos
 
 - R 4.5 ou superior;
 - Quarto;
-- `jsonlite`, `yaml`, `knitr` e `rmarkdown`;
-- `curl` para novas chamadas à API do GitHub.
+- `R6`, `jsonlite`, `yaml`, `knitr` e `rmarkdown`;
+- executável `curl` disponível no PATH para chamadas à API do GitHub.
 
 No R:
 
 ```r
-install.packages(c("jsonlite", "yaml", "knitr", "rmarkdown"))
+install.packages(c("R6", "jsonlite", "yaml", "knitr", "rmarkdown"))
 ```
 
 O token da API deve ficar em `GITHUB_TOKEN` ou em um arquivo `.env` local:
@@ -104,8 +95,7 @@ na seleção e na coleta, mostra apenas a contagem de repositórios aprovados ou
 processados em relação ao total, com atualizações a cada 60 segundos e ao
 concluir. Não exibe estimativa de tempo restante. O estado também fica em
 `outputs/metadata/run_status.json`, incluindo a etapa atual e o PID da execução.
-Um lock impede duas execuções do mesmo projeto de sobrescreverem checkpoints
-ou resultados.
+Um lock impede duas execuções do mesmo projeto de sobrescreverem artefatos.
 
 A coleta é deliberadamente serial para manter a ordem, a reprodutibilidade e o
 limite da API do GitHub. O intervalo normal entre chamadas é aplicado sem
@@ -138,12 +128,11 @@ Rscript tests/test_contracts.R
 
 `main.R` é a única entrada operacional. Os caminhos padrão, o nível de
 significância, os critérios de seleção e os parâmetros de retry estão em
-`settings.yml`. A cada nova seleção, o hash de
-`inputs/final/selected_repositories.csv` é atualizado em
-`inputs/final/published_sample.sha256.txt`. O estado transitório da seleção fica
-em `outputs/metadata/selection_run_state.json` e impede que uma seleção que
-falhou seja confundida com a amostra anterior. Os candidatos e avaliações
-parciais ficam em `outputs/metadata/selection_progress/` até a seleção terminar.
+`config/settings.yml`. A cada nova seleção, o CSV é escrito em arquivo temporário,
+validado e publicado com seu hash em `inputs/final/published_sample.sha256.txt`.
+O manifesto persistente de seleção confirma o hash e o protocolo. A validação
+offline usa esses arquivos versionados, sem depender de estado transitório da
+sessão anterior.
 
 O seletor de idioma carrega `site/locales/pt-BR.json` ou
 `site/locales/en-US.json`; o JavaScript cuida apenas do comportamento e da
@@ -158,7 +147,7 @@ snapshots: o último commit até 24/05/2018 23:59:59 UTC, antes da aplicação d
 GDPR, e o último commit até 30/06/2026 23:59:59 UTC. Não são analisadas outras
 plataformas ou coleções de artefatos.
 
-A busca usa os 24 tópicos configurados em settings.yml. Os critérios de
+A busca usa os 24 tópicos configurados em config/settings.yml. Os critérios de
 elegibilidade são: repositório público, não fork, não arquivado, criado antes
 de 25/05/2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade
 de no mínimo 24 meses, atividade nos dois períodos históricos e licença

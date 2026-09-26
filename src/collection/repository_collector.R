@@ -38,7 +38,7 @@ document_cache_key <- function(repository, commit_sha, candidate) {
   paste(repository, identity, sep = "::")
 }
 
-collect_version <- function(repository, until, accessible, token, document_cache = NULL) {
+collect_version <- function(repository, until, accessible, token, document_cache = NULL, classifier = NULL) {
   version <- list(until = until)
   if (!accessible) {
     version$error <- "versão não consultada porque a validação do repositório falhou"
@@ -88,11 +88,11 @@ collect_version <- function(repository, until, accessible, token, document_cache
   }
   version$documents <- documents
   version$classification_rule_version <- RULE_VERSION
-  version$classification <- classify_documents(documents, commit$sha, repository)
+  version$classification <- if (is.null(classifier)) classify_documents(documents, commit$sha, repository) else classifier$classify(documents, commit$sha, repository)
   version
 }
 
-collect_one <- function(row, source_hash, token) {
+collect_one <- function(row, source_hash, token, classifier = NULL) {
   repository <- scalar_text(row$repository, "")
   result <- list(
     repository = repository,
@@ -114,8 +114,8 @@ collect_one <- function(row, source_hash, token) {
   )
   accessible <- api_response_ok(metadata_response)
   document_cache <- new.env(parent = emptyenv())
-  result$pre <- collect_version(repository, PRE_UNTIL, accessible, token, document_cache)
-  result$post <- collect_version(repository, POST_UNTIL, accessible, token, document_cache)
+  result$pre <- collect_version(repository, PRE_UNTIL, accessible, token, document_cache, classifier)
+  result$post <- collect_version(repository, POST_UNTIL, accessible, token, document_cache, classifier)
   result
 }
 
@@ -141,47 +141,58 @@ assert_checkpoint_complete <- function(sample, checkpoint, source_hash) {
   invisible(TRUE)
 }
 
-run_collection <- function(options) {
-  input_path <- resolve_project_path(options$input %||% sample_path())
-  sample <- read_sample(input_path)
-  validate_open_source_sample(sample)
-  source_hash <- sha256_file(input_path)
-  output_dir <- resolve_project_path(options$output %||% dirname(raw_checkpoint_path()))
-  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-  checkpoint <- file.path(output_dir, "repository_results.jsonl")
-  if (isTRUE(options$fresh) && file.exists(checkpoint)) {
-    unlink(checkpoint)
-  }
-  cached <- index_records(read_jsonl(checkpoint))
-  repositories <- unique(as.character(sample$repository))
-  pending <- repositories[!vapply(repositories, function(repository) is_reusable(cached[[repository]], source_hash), logical(1L))]
-  if (length(pending)) {
-    token <- Sys.getenv("GITHUB_TOKEN", unset = "")
-    if (!nzchar(token)) token <- read_dotenv_token()
-    if (!nzchar(token)) stop("GITHUB_TOKEN não encontrado no ambiente ou em .env.")
-    last_report <- Sys.time()
-    completed_before <- length(repositories) - length(pending)
-    for (index in seq_along(pending)) {
-      repository <- pending[[index]]
-      row <- sample[match(repository, sample$repository), , drop = FALSE]
-      record <- tryCatch(
-        collect_one(row, source_hash, token),
-        error = function(error) {
-          if (api_error_is_rate_limited(error)) stop(error)
-          list(repository = repository, input_row = as.list(row), fatal_error = conditionMessage(error))
+
+RepositoryCollector <- R6::R6Class(
+  "RepositoryCollector",
+  public = list(
+    config = NULL,
+    client = NULL,
+    store = NULL,
+    classifier = NULL,
+    initialize = function(config, client, store, classifier) {
+      self$config <- config
+      self$client <- client
+      self$store <- store
+      self$classifier <- classifier
+    },
+    run = function(input = self$store$sample_path()) {
+      set_github_client(self$client)
+      input <- resolve_project_path(input)
+      sample <- self$store$read_sample(input)
+      self$store$validate_sample(sample)
+      source_hash <- self$store$hash_file(input)
+      checkpoint <- self$store$raw_path()
+      dir.create(dirname(checkpoint), recursive = TRUE, showWarnings = FALSE)
+      temporary <- tempfile("repository-results-", tmpdir = dirname(checkpoint), fileext = ".jsonl")
+      on.exit(unlink(temporary, force = TRUE), add = TRUE)
+
+      token <- Sys.getenv("GITHUB_TOKEN", unset = "")
+      if (!nzchar(token)) token <- read_dotenv_token(file.path(self$config$root, ".env"))
+      if (!nzchar(token)) stop("GITHUB_TOKEN não encontrado no ambiente ou em .env.", call. = FALSE)
+
+      repositories <- as.character(sample$repository)
+      last_report <- Sys.time()
+      for (index in seq_along(repositories)) {
+        repository <- repositories[[index]]
+        row <- sample[index, , drop = FALSE]
+        record <- tryCatch(
+          collect_one(row, source_hash, token, self$classifier),
+          error = function(error) {
+            if (api_error_is_rate_limited(error)) stop(error)
+            list(repository = repository, input_row = as.list(row), fatal_error = conditionMessage(error))
+          }
+        )
+        self$store$write_jsonl(list(record), temporary, append = TRUE)
+        now <- Sys.time()
+        if (index == length(repositories) || as.numeric(difftime(now, last_report, units = "secs")) >= 60) {
+          cat(sprintf("Repositórios processados: %d/%d\n", index, length(repositories)))
+          last_report <- now
         }
-      )
-      write_jsonl(list(record), checkpoint, append = TRUE)
-      now <- Sys.time()
-      if (index == length(pending) || as.numeric(difftime(now, last_report, units = "secs")) >= 60) {
-        cat(sprintf("Repositórios processados: %d/%d\n",
-                    completed_before + index, length(repositories)))
-        last_report <- now
       }
+
+      self$store$assert_checkpoint_complete(sample, temporary, source_hash)
+      if (!file.rename(temporary, checkpoint)) stop("Não foi possível publicar o checkpoint completo da coleta.", call. = FALSE)
+      invisible(checkpoint)
     }
-  } else {
-    cat(sprintf("Repositórios processados: %d/%d\n", length(repositories), length(repositories)))
-  }
-  assert_checkpoint_complete(sample, checkpoint, source_hash)
-  invisible(checkpoint)
-}
+  )
+)

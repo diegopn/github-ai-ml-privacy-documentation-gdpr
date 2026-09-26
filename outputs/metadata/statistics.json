@@ -61,10 +61,10 @@
       "C7": 14
     }
   },
-  "generated_at": "2026-09-23T13:26:21Z",
+  "generated_at": "2026-09-26T03:40:30Z",
   "source_csv": "inputs/final/selected_repositories.csv",
   "significance_level": 0.050000000000000003,
-  "source_sha256": "ac77dbe70022b479af11f38dbc689b7e6691863f03f9c58a94ae8d9285243bf2",
+  "source_sha256": "3087ffb546a8d2b949e06cc3cad3acf9f6639a9fb70e348cb33318cb5e87a4db",
   "pre_until": "2018-05-24T23:59:59Z",
   "post_until": "2026-06-30T23:59:59Z",
   "classification_rule_version": "semantic-conservative-2026-09-c1-c4",

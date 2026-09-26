@@ -115,12 +115,12 @@
           "query": "is:public topic:neural-network stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
           "created_start": "2008-01-01",
           "created_end": "2018-05-24",
-          "total_count": 154,
+          "total_count": 153,
           "pages": 2,
-          "downloaded": 154
+          "downloaded": 153
         }
       ],
-      "downloaded": 154
+      "downloaded": 153
     },
     {
       "topic": "image-classification",
@@ -143,12 +143,12 @@
           "query": "is:public topic:convolutional-neural-networks stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
           "created_start": "2008-01-01",
           "created_end": "2018-05-24",
-          "total_count": 85,
+          "total_count": 84,
           "pages": 1,
-          "downloaded": 85
+          "downloaded": 84
         }
       ],
-      "downloaded": 85
+      "downloaded": 84
     },
     {
       "topic": "object-detection",
@@ -199,12 +199,12 @@
           "query": "is:public topic:nlp stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
           "created_start": "2008-01-01",
           "created_end": "2018-05-24",
-          "total_count": 181,
+          "total_count": 182,
           "pages": 2,
-          "downloaded": 181
+          "downloaded": 182
         }
       ],
-      "downloaded": 181
+      "downloaded": 182
     },
     {
       "topic": "large-language-model",
@@ -213,12 +213,12 @@
           "query": "is:public topic:large-language-model stars:>=500 created:2008-01-01..2018-05-24 fork:false archived:false",
           "created_start": "2008-01-01",
           "created_end": "2018-05-24",
-          "total_count": 1,
-          "pages": 1,
-          "downloaded": 1
+          "total_count": 0,
+          "pages": 0,
+          "downloaded": 0
         }
       ],
-      "downloaded": 1
+      "downloaded": 0
     },
     {
       "topic": "large-language-models",
@@ -347,10 +347,11 @@
       "downloaded": 14
     }
   ],
-  "unique_candidates": 1614,
+  "unique_candidates": 1615,
   "selected_repositories": 474,
-  "generated_at": "2026-09-23T01:36:49Z",
-  "selection_run_id": "20260923T012031-659227",
-  "sample_sha256": "ac77dbe70022b479af11f38dbc689b7e6691863f03f9c58a94ae8d9285243bf2",
-  "sample_rows": 474
+  "generated_at": "2026-09-26T03:08:05Z",
+  "selection_run_id": "20260926T030805-1163591",
+  "sample_sha256": "3087ffb546a8d2b949e06cc3cad3acf9f6639a9fb70e348cb33318cb5e87a4db",
+  "sample_rows": 474,
+  "configuration_fingerprint": "8b61afc5e3a11c542d9ad69508a1b627e7c6f16a83d5394ddbf186d740c54c02"
 }

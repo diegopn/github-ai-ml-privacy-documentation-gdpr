@@ -7,7 +7,7 @@ Este projeto executa a coleta, a classificação textual e a análise estatísti
 ## Entrada e desenho
 
 - CSV de entrada: `inputs/final/selected_repositories.csv`.
-- SHA-256 do CSV: `ac77dbe70022b479af11f38dbc689b7e6691863f03f9c58a94ae8d9285243bf2`.
+- SHA-256 do CSV: `3087ffb546a8d2b949e06cc3cad3acf9f6639a9fb70e348cb33318cb5e87a4db`.
 - Linhas da amostra: **474**.
 - Protocolos de coleta presentes no checkpoint: `open-source-no-size-limit-expanded-topics-2026-09`.
 - Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.

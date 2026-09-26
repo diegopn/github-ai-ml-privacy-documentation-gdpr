@@ -3,10 +3,9 @@ test_path <- sub("^--file=", "", test_file[[1L]])
 project_root <- normalizePath(file.path(dirname(test_path), ".."), mustWork = TRUE)
 setwd(project_root)
 
-source(file.path(project_root, "functions", "common.R"))
-source(file.path(project_root, "functions", "cli.R"))
-source(file.path(project_root, "functions", "select_sample.R"))
-source(file.path(project_root, "functions", "analyze.R"))
+source(file.path(project_root, "src", "bootstrap.R"))
+bootstrap_project(project_root)
+set_github_client(GitHubClient$new(PROJECT_CONFIG))
 
 passed <- 0L
 check <- function(label, condition) {
@@ -94,7 +93,7 @@ complete_record <- list(
 )
 alignment_sample <- data.frame(repository = c("owner/incomplete", "owner/complete"), stringsAsFactors = FALSE)
 alignment_records <- list(complete_record, incomplete_record)
-alignment_dataset <- records_to_dataset(alignment_sample, alignment_records, "test-sha")$data
+alignment_dataset <- DatasetBuilder$new(PROJECT_CONFIG, PrivacyDocumentClassifier$new())$build(alignment_sample, alignment_records, "test-sha")$data
 alignment_stats <- calculate_statistics(
   alignment_records, alignment_dataset, alignment_sample,
   input_path = "inputs/final/selected_repositories.csv"
@@ -105,4 +104,28 @@ check("estatísticas alinham registros com a amostra por repositório",
 check("p-valores pequenos são exibidos em notação científica", grepl("e-", fmt_p(2.160668e-7), fixed = TRUE))
 check("p-valores não nulos não são arredondados para zero", fmt_p(0) == "<5e-324")
 
-cat(sprintf("\n%d verificações locais passaram; nenhum pedido foi feito à API.\n", passed))
+
+mock_client <- R6::R6Class("MockGitHubClient", public = list(
+  api = function(path, params = list(), token = "", return_headers = FALSE) {
+    older <- identical(as.integer(params$page %||% 1L), 2L)
+    date <- if (older) "2015-01-01T00:00:00Z" else "2018-05-24T12:00:00Z"
+    body <- list(list(sha = if (older) "old" else "new", commit = list(
+      author = list(date = date), committer = list(date = date)
+    )))
+    headers <- if (isTRUE(return_headers)) 'Link: <https://api.github.com/repos/sample/project/commits?page=2>; rel="last"' else character()
+    list(status = 200L, body = body, error = "", rate = list(), headers = headers)
+  }
+))$new()
+set_github_client(mock_client)
+selected_record <- evaluate_candidate(candidate, "MIT", token = "", issue_count = 100L)
+check("seletor grava created_at do repositório sem variável indefinida",
+      identical(selected_record$created_at, "2018-05-24T23:59:59Z"))
+check("componentes R6 principais foram compostos", all(vapply(
+  c("ProjectConfig", "ArtifactStore", "GitHubClient", "SampleSelector", "RepositoryCollector",
+    "PrivacyDocumentClassifier", "DatasetBuilder", "ExperimentAnalyzer", "ReportWriter", "ExperimentRunner"),
+  exists, logical(1L), inherits = TRUE
+)))
+check("amostra publicada passa validação por hash e manifesto persistentes",
+      nrow(ArtifactStore$new(PROJECT_CONFIG)$assert_published_sample()) == 474L)
+
+cat(sprintf("\n%d verificações locais passaram; os testes usam cliente GitHub simulado.\n", passed))

@@ -8,7 +8,7 @@ posterior à data de aplicação da GDPR.
 ## Origem histórica dos tópicos de busca
 
 Os 24 tópicos consultados estão em
-[ai_ml_topics_used.csv](ai_ml_topics_used.csv) e em settings.yml. A coluna
+[ai_ml_topics_used.csv](ai_ml_topics_used.csv) e em config/settings.yml. A coluna
 historical_selection_origin registra de onde veio a escolha do rótulo; a
 coluna conceptual_support dá apoio ao significado dos dez termos adicionais.
 Uma coluna não deve ser lida como a outra. Células vazias em

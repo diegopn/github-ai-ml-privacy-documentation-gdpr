@@ -1,130 +1,3 @@
-missing_record <- function(row) {
-  list(
-    repository = scalar_text(row$repository, ""), input_row = as.list(row),
-    accessibility = list(http_status = 0L, accessible = FALSE, metadata = list(), error = "registro não processado"),
-    pre = list(), post = list()
-  )
-}
-
-records_to_dataset <- function(sample, records, source_hash) {
-  by_repository <- index_records(records)
-  rows <- vector("list", nrow(sample))
-  for (index in seq_len(nrow(sample))) {
-    row <- sample[index, , drop = FALSE]
-    repository <- scalar_text(row$repository, "")
-    record <- by_repository[[repository]] %||% missing_record(row)
-    rows[[index]] <- flatten_record(row, record, index + 1L, source_hash)
-  }
-  columns <- dataset_columns()
-  values <- lapply(columns, function(column) {
-    vapply(rows, function(row) {
-      value <- row[[column]]
-      if (is.null(value) || length(value) == 0L) "" else as.character(value[[1L]])
-    }, character(1L))
-  })
-  names(values) <- columns
-  list(rows = rows, data = as.data.frame(values, stringsAsFactors = FALSE, check.names = FALSE))
-}
-
-calculate_d1_statistics <- function(pre_d1, post_d1) {
-  losses <- sum(pre_d1 == 1 & post_d1 == 0, na.rm = TRUE)
-  gains <- sum(pre_d1 == 0 & post_d1 == 1, na.rm = TRUE)
-  pair_count <- length(pre_d1)
-  list(
-    n_complete_pairs = pair_count,
-    pre_ones = sum(pre_d1 == 1, na.rm = TRUE),
-    post_ones = sum(post_d1 == 1, na.rm = TRUE),
-    pre_proportion = if (pair_count) mean(pre_d1 == 1, na.rm = TRUE) else 0,
-    post_proportion = if (pair_count) mean(post_d1 == 1, na.rm = TRUE) else 0,
-    pre1_post0_b = losses,
-    pre0_post1_c = gains,
-    exact_mcnemar_p_two_sided = exact_mcnemar(losses, gains),
-    paired_proportion_difference_post_minus_pre = if (pair_count) (gains - losses) / pair_count else 0,
-    matched_odds_ratio_c_over_b_haldane = (gains + 0.5) / (losses + 0.5)
-  )
-}
-
-calculate_score_statistics <- function(pre_score, post_score) {
-  differences <- post_score - pre_score
-  wilcoxon <- wilcoxon_exact(differences)
-  list(
-    n_complete_pairs = length(differences),
-    pre_mean = if (length(pre_score)) mean(pre_score) else 0,
-    post_mean = if (length(post_score)) mean(post_score) else 0,
-    pre_median = if (length(pre_score)) median(pre_score) else 0,
-    post_median = if (length(post_score)) median(post_score) else 0,
-    pre_iqr = c(percentile_value(pre_score, 0.25), percentile_value(pre_score, 0.75)),
-    post_iqr = c(percentile_value(post_score, 0.25), percentile_value(post_score, 0.75)),
-    difference_mean = if (length(differences)) mean(differences) else 0,
-    difference_median = if (length(differences)) median(differences) else 0,
-    difference_iqr = c(percentile_value(differences, 0.25), percentile_value(differences, 0.75)),
-    difference_ci95_bootstrap_median = bootstrap_median_ci(differences),
-    increased = sum(differences > 0, na.rm = TRUE),
-    decreased = sum(differences < 0, na.rm = TRUE),
-    unchanged = sum(differences == 0, na.rm = TRUE),
-    wilcoxon_signed_rank_exact = c(
-      wilcoxon,
-      list(zero_differences_excluded = sum(differences == 0, na.rm = TRUE), ties_use_average_ranks = TRUE)
-    )
-  )
-}
-
-criterion_frequency <- function(dataset, indices, period) {
-  values <- vapply(names(RULES), function(code) {
-    column <- suppressWarnings(as.numeric(dataset[[paste0(period, "_", code)]][indices]))
-    sum(column == 1, na.rm = TRUE)
-  }, integer(1L))
-  setNames(values, names(RULES))
-}
-
-calculate_statistics <- function(records, dataset, sample, input_path = sample_path()) {
-  records_by_repository <- index_records(records)
-  complete <- vapply(as.character(sample$repository), function(repository) {
-    repository <- scalar_text(repository, "")
-    if (!nzchar(repository)) return(FALSE)
-    record <- records_by_repository[[repository]]
-    !is.null(record) && is_complete_record(record)
-  }, logical(1L))
-  indices <- which(complete)
-  collector_versions <- sort(unique(vapply(
-    records,
-    function(record) scalar_text(record$collector_protocol_version, "unknown"),
-    character(1L)
-  )))
-  numeric_column <- function(name) suppressWarnings(as.numeric(dataset[[name]][indices]))
-  pre_d1 <- numeric_column("pre_D1")
-  post_d1 <- numeric_column("post_D1")
-  pre_score <- numeric_column("pre_score")
-  post_score <- numeric_column("post_score")
-  rq1 <- calculate_d1_statistics(pre_d1, post_d1)
-  generated_at <- format(Sys.time(), tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
-  pre_frequency <- criterion_frequency(dataset, indices, "pre")
-  post_frequency <- criterion_frequency(dataset, indices, "post")
-  rq2 <- calculate_score_statistics(pre_score, post_score)
-  list(
-    analysis_population = "pares com as duas versões históricas e árvores Git recuperadas",
-    total_input_rows = nrow(sample), complete_pairs = length(indices), incomplete_pairs = nrow(sample) - length(indices),
-    incomplete_repositories = as.character(sample$repository[!complete]),
-    rq1_mcnemar = rq1,
-    rq2_wilcoxon = rq2,
-    criterion_frequencies = list(pre = as.list(pre_frequency), post = as.list(post_frequency)),
-    generated_at = generated_at,
-    source_csv = project_relative(input_path),
-    significance_level = ALPHA,
-    source_sha256 = unique(dataset$sample_source_sha256)[[1L]] %||% "",
-    pre_until = PRE_UNTIL, post_until = POST_UNTIL,
-    classification_rule_version = RULE_VERSION,
-    collector_protocol_version = COLLECTOR_PROTOCOL_VERSION,
-    source_collector_protocol_versions = collector_versions,
-    selection_topics = as.character(unlist(setting("selection", "topics", character()), use.names = FALSE)),
-    selection_min_stars = as.integer(setting("selection", "min_stars", 500L)),
-    selection_min_issues = as.integer(setting("selection", "min_issues", 100L)),
-    selection_min_activity_months = as.numeric(setting("selection", "min_activity_months", 24)),
-    sample_requires_osi_approved_license = TRUE,
-    open_source_repositories = nrow(sample)
-  )
-}
-
 fmt_num <- function(value, digits = 3L) {
   if (is.null(value) || length(value) == 0L || is.na(value)) return("NA")
   formatC(as.numeric(value), format = "f", digits = digits, decimal.mark = ".")
@@ -248,7 +121,6 @@ write_manifest <- function(path, stats, input_path = sample_path(), raw_path = r
       "outputs/figures/d1_pre_post.png",
       "outputs/figures/criteria_post_gdpr.png",
       "outputs/metadata/statistics.json",
-      "outputs/metadata/statistics_r.rds",
       "outputs/metadata/sample_used.sha256.txt",
       "outputs/metadata/session_info.txt",
       if (file.exists(selection_audit_path())) project_relative(selection_audit_path()) else character(),
@@ -307,7 +179,6 @@ write_derived_outputs <- function(paths, stats, dataset) {
     stringsAsFactors = FALSE
   )
   write.csv(summary, file.path(paths$tables, "statistics_r.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-  saveRDS(stats, file.path(paths$metadata, "statistics_r.rds"))
 
   png(file.path(paths$figures, "d1_pre_post.png"), width = 1000, height = 650, res = 120)
   barplot(c(r1$pre_ones, r1$post_ones), names.arg = c("Pré-GDPR", "Pós-GDPR"), ylab = "Repositórios com D1 = 1", main = "Presença documental de privacidade", col = c("#f2a36b", "#c84b18"))
@@ -317,52 +188,33 @@ write_derived_outputs <- function(paths, stats, dataset) {
   dev.off()
 }
 
-run_analysis <- function(options) {
-  input_path <- resolve_project_path(options$input %||% sample_path())
-  raw_path <- resolve_project_path(options$raw %||% raw_checkpoint_path())
-  paths <- output_paths(options$output %||% output_root_path())
-  for (directory in paths[-1L]) dir.create(directory, recursive = TRUE, showWarnings = FALSE)
 
-  sample <- read_sample(input_path)
-  validate_open_source_sample(sample)
-  source_hash <- sha256_file(input_path)
-  records <- read_jsonl(raw_path)
-  flattened <- records_to_dataset(sample, records, source_hash)
-  dataset <- flattened$data
-
-  write.csv(sample, file.path(paths$tables, "sample_used.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-  writeLines(
-    c(paste0("sha256  ", source_hash), paste0("source  ", project_relative(input_path)), paste0("rows  ", nrow(sample))),
-    file.path(paths$metadata, "sample_used.sha256.txt"),
-    useBytes = TRUE
+ReportWriter <- R6::R6Class(
+  "ReportWriter",
+  public = list(
+    config = NULL,
+    store = NULL,
+    initialize = function(config, store) {
+      self$config <- config
+      self$store <- store
+    },
+    write_all = function(paths, stats, sample, source_hash, dataset, input_path, raw_path) {
+      for (directory in paths[-1L]) dir.create(directory, recursive = TRUE, showWarnings = FALSE)
+      write.csv(sample, file.path(paths$tables, "sample_used.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+      self$store$write_lines(
+        c(paste0("sha256  ", source_hash), paste0("source  ", self$config$relative(input_path)), paste0("rows  ", nrow(sample))),
+        file.path(paths$metadata, "sample_used.sha256.txt")
+      )
+      write.csv(dataset, file.path(paths$tables, "final_privacy_gdpr_dataset.csv"), row.names = FALSE, fileEncoding = "UTF-8", na = "")
+      write_positive_evidence(file.path(paths$tables, "positive_evidence.csv"), dataset)
+      write_derived_outputs(paths, stats, dataset)
+      self$store$write_json(stats, file.path(paths$metadata, "statistics.json"), pretty = TRUE)
+      write_stats_markdown(file.path(paths$reports, "statistical_results.md"), stats)
+      write_report(file.path(paths$reports, "privacy_documentation_experiment_gdpr.md"), stats, sample, source_hash, dataset, input_path, raw_path)
+      write_manifest(file.path(paths$metadata, "manifest.json"), stats, input_path, raw_path)
+      session_info <- sub("[[:space:]]+$", "", capture.output(sessionInfo()))
+      self$store$write_lines(session_info, file.path(paths$metadata, "session_info.txt"))
+      invisible(paths)
+    }
   )
-  write.csv(dataset, file.path(paths$tables, "final_privacy_gdpr_dataset.csv"), row.names = FALSE, fileEncoding = "UTF-8", na = "")
-  write_positive_evidence(file.path(paths$tables, "positive_evidence.csv"), dataset)
-  stats <- calculate_statistics(records, dataset, sample, input_path)
-  write_derived_outputs(paths, stats, dataset)
-  jsonlite::write_json(stats, file.path(paths$metadata, "statistics.json"), auto_unbox = TRUE, pretty = TRUE, na = "null", digits = 16)
-  write_stats_markdown(file.path(paths$reports, "statistical_results.md"), stats)
-  write_report(file.path(paths$reports, "privacy_documentation_experiment_gdpr.md"), stats, sample, source_hash, dataset, input_path, raw_path)
-  write_manifest(file.path(paths$metadata, "manifest.json"), stats, input_path, raw_path)
-  session_info <- sub("[[:space:]]+$", "", capture.output(sessionInfo()))
-  writeLines(session_info, file.path(paths$metadata, "session_info.txt"), useBytes = TRUE)
-  rq1 <- stats$rq1_mcnemar
-  rq2 <- stats$rq2_wilcoxon
-  cat(sprintf(
-    paste0(
-      "\nResultados finais\n",
-      "Repositórios analisados: %d | pares completos: %d\n",
-      "D1 = 1: %d/%d (%.2f%%) → %d/%d (%.2f%%)\n",
-      "Diferença D1: %+.2f p.p. | McNemar exato: p = %.6g\n",
-      "Score médio (0–7): %.3f → %.3f | Wilcoxon exato: p = %.6g\n"
-    ),
-    nrow(sample), stats$complete_pairs,
-    rq1$pre_ones, rq1$n_complete_pairs, 100 * rq1$pre_proportion,
-    rq1$post_ones, rq1$n_complete_pairs, 100 * rq1$post_proportion,
-    100 * rq1$paired_proportion_difference_post_minus_pre,
-    rq1$exact_mcnemar_p_two_sided,
-    rq2$pre_mean, rq2$post_mean,
-    rq2$wilcoxon_signed_rank_exact$p_two_sided_exact
-  ))
-  invisible(stats)
-}
+)
