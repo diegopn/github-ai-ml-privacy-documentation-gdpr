@@ -46,26 +46,36 @@ PairedStatistics <- R6::R6Class(
       if (!identical(as.character(criteria), paste0("C", 1:7))) {
         stop("A análise exige os critérios C1 a C7, nesta ordem.", call. = FALSE)
       }
+      private$validate_sample(sample)
+      private$validate_dataset(dataset, sample, criteria)
+    },
+    validate_sample = function(sample) {
       if (!is.data.frame(sample) || !"repository" %in% names(sample)) {
         stop("A amostra precisa conter a coluna repository.", call. = FALSE)
       }
-      sample_repositories <- as.character(sample$repository)
-      if (anyNA(sample_repositories) || any(!nzchar(sample_repositories)) ||
-        any(trimws(sample_repositories) != sample_repositories) || anyDuplicated(sample_repositories)) {
+      repositories <- as.character(sample$repository)
+      repositories_are_valid <- !anyNA(repositories) &&
+        all(nzchar(repositories) & trimws(repositories) == repositories) &&
+        anyDuplicated(repositories) == 0L
+      if (!repositories_are_valid) {
         stop("A amostra precisa conter identificadores de repositório únicos e sem espaços externos.", call. = FALSE)
       }
+    },
+    validate_dataset = function(dataset, sample, criteria) {
       if (!is.data.frame(dataset) || nrow(dataset) != nrow(sample)) {
         stop("O conjunto de dados precisa ter uma linha para cada repositório da amostra.", call. = FALSE)
       }
-      if (!"repository" %in% names(dataset) || !identical(as.character(dataset$repository), sample_repositories)) {
+      if (!"repository" %in% names(dataset) ||
+        !identical(as.character(dataset$repository), as.character(sample$repository))) {
         stop("As linhas do conjunto de dados precisam corresponder, na mesma ordem, à amostra.", call. = FALSE)
       }
       private$validate_dataset_columns(dataset, criteria)
       hashes <- as.character(dataset$sample_source_sha256)
-      if (nrow(dataset) && (anyNA(hashes) || any(!nzchar(hashes)) || length(unique(hashes)) != 1L)) {
+      source_hash_is_valid <- length(unique(hashes)) == 1L &&
+        all(!is.na(hashes) & nzchar(hashes))
+      if (nrow(dataset) && !source_hash_is_valid) {
         stop("O dataset precisa ter um único hash de origem não vazio.", call. = FALSE)
       }
-      invisible(TRUE)
     },
     analysis_metadata = function(records, dataset, sample, input_path, rule_version) {
       collector_versions <- sort(unique(vapply(records, function(record) {
@@ -108,7 +118,7 @@ PairedStatistics <- R6::R6Class(
       records_by_repository <- list()
       for (record in records) {
         repository <- private$values$scalar_text(record$repository, "")
-        if (nzchar(repository)) records_by_repository[[repository]] <- record
+        records_by_repository[repository] <- list(record)
       }
       vapply(as.character(sample$repository), function(repository) {
         repository <- private$values$scalar_text(repository, "")
@@ -142,15 +152,15 @@ PairedStatistics <- R6::R6Class(
       values <- differences[differences != 0]
       n <- length(values)
       if (!n) return(list(n_nonzero = 0L, w_plus = 0, w_minus = 0, p_two_sided_exact = 1, rank_biserial = 0))
-      ranks <- rank(abs(values), ties.method = "average")
-      w_plus <- sum(ranks[values > 0])
-      w_minus <- sum(ranks[values < 0])
-      p_value <- stats::wilcox.test(values, alternative = "two.sided", exact = TRUE)$p.value
+      test <- stats::wilcox.test(values, alternative = "two.sided", exact = TRUE)
+      w_plus <- unname(test$statistic)
+      rank_total <- n * (n + 1) / 2
+      w_minus <- rank_total - w_plus
       list(
         n_nonzero = n,
         w_plus = w_plus,
         w_minus = w_minus,
-        p_two_sided_exact = p_value,
+        p_two_sided_exact = test$p.value,
         rank_biserial = (w_plus - w_minus) / (w_plus + w_minus)
       )
     },
@@ -179,33 +189,39 @@ PairedStatistics <- R6::R6Class(
       losses <- sum(pre_d1 == 1 & post_d1 == 0, na.rm = TRUE)
       gains <- sum(pre_d1 == 0 & post_d1 == 1, na.rm = TRUE)
       pair_count <- length(pre_d1)
+      pre_ones <- sum(pre_d1 == 1, na.rm = TRUE)
+      post_ones <- sum(post_d1 == 1, na.rm = TRUE)
+      proportion_denominator <- max(1L, pair_count)
       list(
         n_complete_pairs = pair_count,
-        pre_ones = sum(pre_d1 == 1, na.rm = TRUE),
-        post_ones = sum(post_d1 == 1, na.rm = TRUE),
-        pre_proportion = if (pair_count) mean(pre_d1 == 1) else 0,
-        post_proportion = if (pair_count) mean(post_d1 == 1) else 0,
+        pre_ones = pre_ones,
+        post_ones = post_ones,
+        pre_proportion = pre_ones / proportion_denominator,
+        post_proportion = post_ones / proportion_denominator,
         pre1_post0_b = losses,
         pre0_post1_c = gains,
         exact_mcnemar_p_two_sided = private$exact_mcnemar(losses, gains),
-        paired_proportion_difference_post_minus_pre = if (pair_count) (gains - losses) / pair_count else 0,
+        paired_proportion_difference_post_minus_pre = (gains - losses) / proportion_denominator,
         matched_odds_ratio_c_over_b_haldane = (gains + 0.5) / (losses + 0.5)
       )
     },
     calculate_score_statistics = function(pre_score, post_score) {
       differences <- post_score - pre_score
+      pre_summary <- private$score_summary(pre_score)
+      post_summary <- private$score_summary(post_score)
+      change_summary <- private$score_summary(differences)
       wilcoxon <- private$wilcoxon_exact(differences)
       list(
         n_complete_pairs = length(differences),
-        pre_mean = if (length(pre_score)) mean(pre_score) else 0,
-        post_mean = if (length(post_score)) mean(post_score) else 0,
-        pre_median = if (length(pre_score)) stats::median(pre_score) else 0,
-        post_median = if (length(post_score)) stats::median(post_score) else 0,
-        pre_iqr = c(private$percentile_value(pre_score, 0.25), private$percentile_value(pre_score, 0.75)),
-        post_iqr = c(private$percentile_value(post_score, 0.25), private$percentile_value(post_score, 0.75)),
-        difference_mean = if (length(differences)) mean(differences) else 0,
-        difference_median = if (length(differences)) stats::median(differences) else 0,
-        difference_iqr = c(private$percentile_value(differences, 0.25), private$percentile_value(differences, 0.75)),
+        pre_mean = pre_summary$mean,
+        post_mean = post_summary$mean,
+        pre_median = pre_summary$median,
+        post_median = post_summary$median,
+        pre_iqr = pre_summary$iqr,
+        post_iqr = post_summary$iqr,
+        difference_mean = change_summary$mean,
+        difference_median = change_summary$median,
+        difference_iqr = change_summary$iqr,
         difference_ci95_bootstrap_median = private$bootstrap_median_ci(differences),
         increased = sum(differences > 0, na.rm = TRUE),
         decreased = sum(differences < 0, na.rm = TRUE),
@@ -214,6 +230,14 @@ PairedStatistics <- R6::R6Class(
           wilcoxon,
           list(zero_differences_excluded = sum(differences == 0, na.rm = TRUE), ties_use_average_ranks = TRUE)
         )
+      )
+    },
+    score_summary = function(values) {
+      if (!length(values)) return(list(mean = 0, median = 0, iqr = c(NA_real_, NA_real_)))
+      list(
+        mean = mean(values),
+        median = stats::median(values),
+        iqr = c(private$percentile_value(values, 0.25), private$percentile_value(values, 0.75))
       )
     },
     criterion_frequency = function(dataset, indices, period, criteria) {

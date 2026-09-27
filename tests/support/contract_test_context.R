@@ -42,15 +42,12 @@ ContractTestContext <- R6::R6Class(
         file.path(root, "inputs", "reference", "osi_approved_spdx_ids.txt"))
       settings_path <- file.path(root, "config", "settings.yml")
       settings <- yaml::read_yaml(settings_path)
-      settings$api$max_attempts <- 2L
-      settings$api$retry_base_seconds <- 1
-      settings$api$retry_max_seconds <- 1
-      settings$api$retry_budget_seconds <- 10
-      settings$api$max_rate_wait_seconds <- 0
-      settings$api$core_interval_seconds <- 0
-      settings$api$search_interval_seconds <- 0
-      settings$api$raw_interval_seconds <- 0
-      settings$api$graphql_interval_seconds <- 0
+      settings$api <- utils::modifyList(settings$api, list(
+        max_attempts = 2L, retry_base_seconds = 1, retry_max_seconds = 1,
+        retry_budget_seconds = 10, max_rate_wait_seconds = 0,
+        core_interval_seconds = 0, search_interval_seconds = 0,
+        raw_interval_seconds = 0, graphql_interval_seconds = 0
+      ))
       settings$api <- utils::modifyList(settings$api, api_settings)
       yaml::write_yaml(settings, settings_path)
       config <- private$project_instance$classes$ProjectConfig$new(root, self$values())

@@ -52,13 +52,13 @@ ReportWriter <- R6::R6Class(
     classifier = NULL,
 
     fmt_num = function(value, digits = 3L) {
-      if (is.null(value) || length(value) == 0L || is.na(value))
+      if (length(value) == 0L || is.na(value))
           return("NA")
       formatC(as.numeric(value), format = "f", digits = digits, decimal.mark = ".")
     },
 
     fmt_p = function(value) {
-      if (is.null(value) || length(value) == 0L || is.na(value))
+      if (length(value) == 0L || is.na(value))
           return("NA")
       value <- as.numeric(value)
       if (!is.finite(value) || value < 0)
@@ -183,7 +183,8 @@ ReportWriter <- R6::R6Class(
 
     manifest = function(stats, input_path, raw_path, paths) {
       audit_path <- private$config$path("selection_audit", "outputs/metadata/selection_search_manifest.json")
-      manifest <- list(generated_at = stats$generated_at, project_name = as.character(private$config$get("project",
+      audit_file <- if (file.exists(audit_path)) private$config$relative(audit_path)
+      list(generated_at = stats$generated_at, project_name = as.character(private$config$get("project",
           "name", "privacy-documentation-experiment")), input_csv = private$config$relative(input_path),
           input_sha256 = stats$source_sha256, input_rows = stats$total_input_rows, dataset_rows = stats$total_input_rows,
           complete_pairs = stats$complete_pairs, incomplete_pairs = stats$incomplete_pairs,
@@ -192,12 +193,9 @@ ReportWriter <- R6::R6Class(
           significance_level = stats$significance_level, classification_rule_version = stats$classification_rule_version,
           collector_protocol_version = stats$collector_protocol_version, source_collector_protocol_versions = stats$source_collector_protocol_versions,
           wilcoxon_method = "exact-two-sided-average-ranks-zero-differences-excluded", sample_requires_osi_approved_license = TRUE,
-          selection_topics = stats$selection_topics, selection_audit = if (file.exists(audit_path)) private$config$relative(audit_path) else NULL,
+          selection_topics = stats$selection_topics, selection_audit = audit_file,
           files = c(private$config$relative(input_path), private$config$relative(raw_path),
-            private$artifact_files(paths),
-            if (file.exists(audit_path)) private$config$relative(audit_path) else character()))
-
-      manifest
+            private$artifact_files(paths), audit_file))
     },
 
     artifact_files = function(paths) {
@@ -261,7 +259,7 @@ ReportWriter <- R6::R6Class(
       r1 <- stats$rq1_mcnemar
       r2 <- stats$rq2_wilcoxon
       w <- r2$wilcoxon_signed_rank_exact
-      summary <- data.frame(indicador = c("repositorios_na_amostra_final_analisada",
+      data.frame(indicador = c("repositorios_na_amostra_final_analisada",
           "D1_pre", "D1_pos", "pre_1_pos_0", "pre_0_pos_1", "p_McNemar_exato_bicaudal", "media_score_pre",
           "media_score_pos", "diferenca_media_score", "aumentos_score", "reducoes_score", "empates_score",
           "diferencas_nao_nulas", "W_mais", "W_menos", "p_Wilcoxon_exato_bicaudal", "correlacao_bisserial"),
@@ -269,7 +267,6 @@ ReportWriter <- R6::R6Class(
               r1$post_ones, r1$pre1_post0_b, r1$pre0_post1_c, r1$exact_mcnemar_p_two_sided,
               r2$pre_mean, r2$post_mean, r2$difference_mean, r2$increased, r2$decreased, r2$unchanged,
               w$n_nonzero, w$w_plus, w$w_minus, w$p_two_sided_exact, w$rank_biserial), stringsAsFactors = FALSE)
-      summary
     },
 
     write_barplot = function(path, heights, labels, ylab, title, colors) {

@@ -82,15 +82,8 @@ GitHubRateLimiter <- R6::R6Class(
       if (length(value) != 1L || !is.finite(value)) 0 else value
     },
     api_rate_interval = function(resource) {
-      key <- switch(
-        resource,
-        search = "search_interval_seconds",
-        raw = "raw_interval_seconds",
-        graphql = "graphql_interval_seconds",
-        "core_interval_seconds"
-      )
       default <- if (identical(resource, "search")) 2.2 else 0
-      as.numeric(private$config$get("api", key, default))
+      as.numeric(private$config$get("api", paste0(resource, "_interval_seconds"), default))
     },
     rate_state_path = function() {
       path <- private$config$get("api", "rate_state_path", "outputs/metadata/github_api_rate_state.json")
@@ -135,9 +128,9 @@ GitHubRateLimiter <- R6::R6Class(
       invisible(TRUE)
     },
     rate_state_deadline = function(now, current, remaining, reset, retry_after, fallback_delay) {
-      retry_at <- if (is.finite(retry_after) && retry_after > 0) now + retry_after + 2 else 0
-      reset_at <- if ((!is.finite(retry_after) || retry_after <= 0) &&
-        is.finite(remaining) && remaining <= 0 && is.finite(reset) && reset > now) reset + 2 else 0
+      retry_at <- if (isTRUE(retry_after > 0)) now + retry_after + 2 else 0
+      reset_at <- if (!isTRUE(retry_after > 0) && is.finite(remaining) && remaining <= 0 &&
+        is.finite(reset) && reset > now) reset + 2 else 0
       fallback_at <- if (is.finite(fallback_delay) && fallback_delay > 0) now + fallback_delay else 0
       max(current, reset_at, retry_at, fallback_at)
     },

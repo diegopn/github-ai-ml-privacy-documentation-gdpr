@@ -83,17 +83,11 @@ GitHubHttpTransport <- R6::R6Class(
       if (!nzchar(detail)) detail <- trimws(gsub("[[:space:]]+", " ", curl_error, perl = TRUE))
       substr(detail, 1L, 500L)
     },
-    parse_json_body = function(body_text) {
-      parsed <- tryCatch(
-        if (nzchar(body_text)) jsonlite::fromJSON(body_text, simplifyVector = FALSE) else list(),
-        error = function(error) error
-      )
-      if (inherits(parsed, "error")) {
-        list(body = list(), error = conditionMessage(parsed))
-      } else {
-        list(body = parsed, error = "")
-      }
-    },
+    parse_json_body = function(body_text) tryCatch(
+      list(body = if (nzchar(body_text)) jsonlite::fromJSON(body_text, simplifyVector = FALSE) else list(),
+        error = ""),
+      error = function(error) list(body = list(), error = conditionMessage(error))
+    ),
     response_error_message = function(status, body_text, error_text, transport_error, json_error) {
       if (nzchar(json_error)) return(paste0("Resposta JSON inválida: ", json_error))
       if (transport_error || status == 0L) {
@@ -112,7 +106,7 @@ GitHubHttpTransport <- R6::R6Class(
       status == 403L && ((!is.na(remaining) && remaining <= 0) || (!is.na(retry_after) && retry_after > 0))
     },
     response_is_retryable = function(status, rate_limited = FALSE) {
-      is.na(status) || status == 0L || status %in% c(408L, 425L, 429L) || status >= 500L || isTRUE(rate_limited)
+      is.na(status) || status %in% c(0L, 408L, 425L, 429L) || status >= 500L || isTRUE(rate_limited)
     },
     api_retry_delay = function(rate, attempt, rate_limited) {
       retry_after <- private$values$scalar_number(rate$retry_after)

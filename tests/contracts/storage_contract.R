@@ -13,39 +13,39 @@ StorageContract <- R6::R6Class(
       unsafe_repository <- sample
       unsafe_repository$repository <- "owner/project?redirect=example"
       context$check("ArtifactStore rejeita licença desconhecida e identificadores de repositório inválidos",
-        context$errors(project$store$validate_sample(missing_approval)) &&
-          context$errors(project$store$validate_sample(missing_repository)) &&
-          context$errors(project$store$validate_sample(unsafe_repository)))
+        all(context$errors(project$store$validate_sample(missing_approval)),
+          context$errors(project$store$validate_sample(missing_repository)),
+          context$errors(project$store$validate_sample(unsafe_repository))))
       context$check("ArtifactStore publica amostra, hash e manifesto juntos",
-        result$rows == 1L && nrow(project$store$assert_published_sample()) == 1L &&
-          file.exists(project$store$sample_hash_path()) && file.exists(project$store$audit_path()))
+        all(result$rows == 1L, nrow(project$store$assert_published_sample()) == 1L,
+          file.exists(project$store$sample_hash_path()), file.exists(project$store$audit_path())))
       jsonl_path <- file.path(project$root, "inputs", "raw", "records.jsonl")
       project$store$write_jsonl(list(list(repository = "owner/project", n = 1L)), jsonl_path, append = FALSE)
       parsed <- project$store$read_jsonl(jsonl_path)
-      context$check("ArtifactStore grava e lê JSONL", length(parsed) == 1L && parsed[[1L]]$repository == "owner/project")
+      context$check("ArtifactStore grava e lê JSONL", all(length(parsed) == 1L, parsed[[1L]]$repository == "owner/project"))
       cat("{broken", file = jsonl_path, append = TRUE)
       original_hash <- project$store$hash_file(jsonl_path)
       context$check("leitura JSONL rejeita a última linha interrompida sem alterar o arquivo",
-        context$errors(project$store$read_jsonl(jsonl_path)) &&
-          identical(original_hash, project$store$hash_file(jsonl_path)))
+        all(context$errors(project$store$read_jsonl(jsonl_path)),
+          identical(original_hash, project$store$hash_file(jsonl_path))))
       cat("\n", file = jsonl_path, append = TRUE)
       original_hash <- project$store$hash_file(jsonl_path)
       context$check("leitura JSONL rejeita uma linha inválida mesmo com quebra de linha final",
-        context$errors(project$store$read_jsonl(jsonl_path)) &&
-          identical(original_hash, project$store$hash_file(jsonl_path)))
+        all(context$errors(project$store$read_jsonl(jsonl_path)),
+          identical(original_hash, project$store$hash_file(jsonl_path))))
       target <- file.path(project$root, "atomic.json")
       project$store$write_json(list(original = TRUE), target)
       before <- readBin(target, "raw", n = file.info(target)$size)
       failed <- context$errors(project$store$write_json(new.env(parent = emptyenv()), target))
       context$check("falha de serialização atômica preserva o arquivo anterior e remove o temporário",
-        failed && identical(before, readBin(target, "raw", n = file.info(target)$size)) &&
-          !length(list.files(project$root, pattern = "[.]partial$", all.files = TRUE)))
+        all(failed, identical(before, readBin(target, "raw", n = file.info(target)$size)),
+          !length(list.files(project$root, pattern = "[.]partial$", all.files = TRUE))))
       lock_path <- context$track(tempfile("r6-artifact-lock-"))
       inside_lock <- context$services()$lock_manager$with_lock(lock_path, {
         dir.exists(lock_path) && file.exists(file.path(lock_path, "owner.json"))
       }, timeout_seconds = 0)
       context$check("ArtifactLock registra o proprietário e libera o lock após a operação",
-        isTRUE(inside_lock) && !dir.exists(lock_path))
+        all(isTRUE(inside_lock), !dir.exists(lock_path)))
       private$hashes(context)
       private$checkpoint_integrity(context)
       private$selection_configuration(context)
@@ -58,10 +58,10 @@ StorageContract <- R6::R6Class(
       path <- context$track(tempfile("r6 hash % espaço-"))
       writeBin(charToRaw("abc"), path)
       context$check("SHA-256 nativo preserva hashes conhecidos e nomes de arquivo especiais",
-        store$hash_text("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" &&
-          identical(store$hash_file(path), store$hash_text("abc")) &&
-          store$hash_text("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" &&
-          context$errors(store$hash_text(c("a", "b"))))
+        all(store$hash_text("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          identical(store$hash_file(path), store$hash_text("abc")),
+          store$hash_text("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          context$errors(store$hash_text(c("a", "b")))))
     },
     checkpoint_integrity = function(context) {
       project <- context$new_test_project()
@@ -72,7 +72,7 @@ StorageContract <- R6::R6Class(
       project$store$write_jsonl(list(record), append = FALSE)
       valid <- project$store$read_complete_checkpoint(sample, source_hash = "test-hash")
       context$check("leitura do checkpoint validado devolve os registros sem nova desserialização",
-        length(valid) == 1L && valid[[1L]]$repository == "owner/project")
+        all(length(valid) == 1L, valid[[1L]]$repository == "owner/project"))
       project$store$write_jsonl(list(record, record), append = FALSE)
       context$check("checkpoint duplicado é rejeitado em vez de sobrescrever registros em memória",
         context$errors(project$store$read_complete_checkpoint(sample, source_hash = "test-hash")))
@@ -85,12 +85,12 @@ StorageContract <- R6::R6Class(
       cat("{broken", file = project$store$raw_path(), append = TRUE)
       hash <- project$store$hash_file(project$store$raw_path())
       context$check("conferência de completude rejeita JSONL truncado sem reparar seus bytes",
-        context$errors(project$store$read_complete_checkpoint(sample, source_hash = "test-hash")) &&
-          identical(hash, project$store$hash_file(project$store$raw_path())))
+        all(context$errors(project$store$read_complete_checkpoint(sample, source_hash = "test-hash")),
+          identical(hash, project$store$hash_file(project$store$raw_path()))))
       project$store$write_jsonl(list(), append = FALSE)
       context$check("substituir JSONL por lista vazia remove registros anteriores",
-        file.info(project$store$raw_path())$size == 0 &&
-          context$errors(project$store$read_complete_checkpoint(sample, source_hash = "test-hash")))
+        all(file.info(project$store$raw_path())$size == 0,
+          context$errors(project$store$read_complete_checkpoint(sample, source_hash = "test-hash"))))
       project$store$write_lines("42", project$store$raw_path())
       context$check("checkpoint rejeita JSON válido que não seja um objeto de registro",
         context$errors(project$store$read_jsonl()))

@@ -21,7 +21,7 @@ CollectionProtocolContract <- R6::R6Class(
       context$check("estado desconhecido da árvore não é convertido em árvore completa", !protocol$record_analyzable(invalid))
       invalid$pre <- "invalid"
       context$check("estruturas inválidas de coleta são rejeitadas sem erro de coerção",
-        !protocol$record_complete(invalid) && !protocol$record_complete(NULL) && !protocol$record_complete("invalid"))
+        all(!protocol$record_complete(invalid), !protocol$record_complete(NULL), !protocol$record_complete("invalid")))
       invisible(TRUE)
     }
   ),

@@ -19,7 +19,7 @@ StatisticsContract <- R6::R6Class(
       stats <- context$services()$statistics$calculate(fixture$records, fixture$dataset, fixture$sample,
         fixture$input_path, context$services()$classifier$criterion_codes(), context$services()$classifier$rule_version())
       context$check("hash de origem é preservado mesmo quando nenhum par pode entrar nos testes",
-        stats$complete_pairs == 0L && identical(stats$source_sha256, "fixture-hash"))
+        all(stats$complete_pairs == 0L, identical(stats$source_sha256, "fixture-hash")))
       fixture$dataset$sample_source_sha256[[1L]] <- "other-hash"
       context$check("estatística rejeita dataset que mistura hashes de amostras diferentes",
         context$errors(context$services()$statistics$calculate(fixture$records, fixture$dataset, fixture$sample,
@@ -76,27 +76,27 @@ StatisticsContract <- R6::R6Class(
         fixture$sample, fixture$input_path, context$services()$classifier$criterion_codes(),
         context$services()$classifier$rule_version())
       context$check("validação vetorial exclui NA, score inconsistente, texto e D1 fora do domínio",
-        stats$complete_pairs == 1L && stats$incomplete_pairs == 4L &&
-          identical(stats$incomplete_repositories, fixture$sample$repository[1:4]))
+        all(stats$complete_pairs == 1L, stats$incomplete_pairs == 4L,
+          identical(stats$incomplete_repositories, fixture$sample$repository[1:4])))
       empty <- context$services()$statistics$calculate(list(), fixture$dataset[FALSE, ],
         fixture$sample[FALSE, ], fixture$input_path, context$services()$classifier$criterion_codes(),
         context$services()$classifier$rule_version())
       context$check("análise com população vazia conserva esquema e retornos definidos",
-        empty$complete_pairs == 0L && empty$rq1_mcnemar$exact_mcnemar_p_two_sided == 1 &&
-          all(is.na(empty$rq2_wilcoxon$difference_ci95_bootstrap_median)))
+        all(empty$complete_pairs == 0L, empty$rq1_mcnemar$exact_mcnemar_p_two_sided == 1,
+          all(is.na(empty$rq2_wilcoxon$difference_ci95_bootstrap_median))))
     },
     fixture_statistics = function(context) {
       fixture <- OfflineExperimentFixture$new(context)$build()
       stats <- fixture$stats
       context$check("estatísticas usam pares completos e coincidem com o McNemar binomial exato",
-        stats$total_input_rows == 5L && stats$complete_pairs == 5L && stats$incomplete_pairs == 0L &&
-          stats$rq1_mcnemar$pre1_post0_b == 1L && stats$rq1_mcnemar$pre0_post1_c == 3L &&
-          isTRUE(all.equal(stats$rq1_mcnemar$exact_mcnemar_p_two_sided, stats::binom.test(1, 4)$p.value)))
+        all(stats$total_input_rows == 5L, stats$complete_pairs == 5L, stats$incomplete_pairs == 0L,
+          stats$rq1_mcnemar$pre1_post0_b == 1L, stats$rq1_mcnemar$pre0_post1_c == 3L,
+          isTRUE(all.equal(stats$rq1_mcnemar$exact_mcnemar_p_two_sided, stats::binom.test(1, 4)$p.value))))
       wilcoxon <- stats$rq2_wilcoxon$wilcoxon_signed_rank_exact
       context$check("Wilcoxon exato preserva postos médios, sinais, zeros e diferenças",
-        wilcoxon$n_nonzero == 3L && wilcoxon$w_plus == 4.5 && wilcoxon$w_minus == 1.5 &&
-          wilcoxon$rank_biserial == 0.5 && wilcoxon$p_two_sided_exact == 0.75 &&
-          wilcoxon$zero_differences_excluded == 2L)
+        all(wilcoxon$n_nonzero == 3L, wilcoxon$w_plus == 4.5, wilcoxon$w_minus == 1.5,
+          wilcoxon$rank_biserial == 0.5, wilcoxon$p_two_sided_exact == 0.75,
+          wilcoxon$zero_differences_excluded == 2L))
     },
     single_pair_and_population = function(context) {
       analysis <- context$classes()$PairedStatistics$new(
@@ -129,14 +129,14 @@ StatisticsContract <- R6::R6Class(
       truncated_result <- analysis$calculate(list(truncated_record), one_dataset, one_sample, context$store()$sample_path(),
         classifier$criterion_codes(), classifier$rule_version())
       context$check("par com árvore Git truncada é excluído da análise de evidência",
-        truncated_result$complete_pairs == 0L && truncated_result$incomplete_pairs == 1L &&
-          identical(truncated_result$incomplete_repositories, "owner/one"))
+        all(truncated_result$complete_pairs == 0L, truncated_result$incomplete_pairs == 1L,
+          identical(truncated_result$incomplete_repositories, "owner/one")))
       unknown_tree_record <- one_record
       unknown_tree_record$post$tree_truncated <- NULL
       unknown_tree_result <- analysis$calculate(list(unknown_tree_record), one_dataset, one_sample,
         context$store()$sample_path(), classifier$criterion_codes(), classifier$rule_version())
       context$check("par sem informação sobre truncamento é excluído de forma conservadora",
-        unknown_tree_result$complete_pairs == 0L && unknown_tree_result$incomplete_pairs == 1L)
+        all(unknown_tree_result$complete_pairs == 0L, unknown_tree_result$incomplete_pairs == 1L))
     },
     random_state = function(context) {
       fixture <- OfflineExperimentFixture$new(context)$build()
@@ -175,8 +175,8 @@ StatisticsContract <- R6::R6Class(
       large_result <- analysis$calculate(large_records, large_dataset, large_sample, context$store()$sample_path(),
         classifier$criterion_codes(), classifier$rule_version())
       context$check("McNemar permanece finito quando coeficientes binomiais excedem double",
-        is.finite(large_result$rq1_mcnemar$exact_mcnemar_p_two_sided) &&
-          large_result$rq1_mcnemar$exact_mcnemar_p_two_sided == 1)
+        all(is.finite(large_result$rq1_mcnemar$exact_mcnemar_p_two_sided),
+          large_result$rq1_mcnemar$exact_mcnemar_p_two_sided == 1))
     }
   ),
   lock_class = TRUE,

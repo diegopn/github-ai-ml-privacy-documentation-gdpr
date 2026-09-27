@@ -36,8 +36,8 @@ CollectionProtocol <- R6::R6Class(
       if (!all(vapply(candidates, is.list, logical(1L))) || !all(vapply(documents, is.list, logical(1L)))) return(FALSE)
       candidate_paths <- vapply(candidates, private$document_path, character(1L))
       document_paths <- vapply(documents, private$document_path, character(1L))
-      if (any(!nzchar(candidate_paths)) || anyDuplicated(candidate_paths) ||
-        !identical(candidate_paths, document_paths)) return(FALSE)
+      if (!all(c(nzchar(candidate_paths), !anyDuplicated(candidate_paths),
+        identical(candidate_paths, document_paths)))) return(FALSE)
       all(vapply(documents, function(document) {
         identical(as.character(document$status), "200") && is.character(document$text) &&
           length(document$text) == 1L && !is.na(document$text)

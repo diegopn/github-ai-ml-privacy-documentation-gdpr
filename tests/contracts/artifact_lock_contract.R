@@ -16,32 +16,32 @@ ArtifactLockContract <- R6::R6Class(
       first$acquire(path, timeout_seconds = 0)
       owner <- jsonlite::fromJSON(file.path(path, "owner.json"))
       context$check("outra instância no mesmo processo não libera nem adquire um lock ativo",
-        identical(second$release(path), FALSE) && dir.exists(path) &&
-          context$errors(second$acquire(path, timeout_seconds = 0)))
+        all(identical(second$release(path), FALSE), dir.exists(path),
+          context$errors(second$acquire(path, timeout_seconds = 0))))
       context$check("aquisição repetida pelo proprietário falha sem alterar o lock",
-        context$errors(first$acquire(path, timeout_seconds = 0)) &&
-          identical(jsonlite::fromJSON(file.path(path, "owner.json"))$token, owner$token))
+        all(context$errors(first$acquire(path, timeout_seconds = 0)),
+          identical(jsonlite::fromJSON(file.path(path, "owner.json"))$token, owner$token)))
       unlink(path, recursive = TRUE)
       second$acquire(path, timeout_seconds = 0, metadata = list(pid = -1L, token = "forged", mode = "test"))
       replacement <- jsonlite::fromJSON(file.path(path, "owner.json"))
       context$check("uma aquisição anterior não libera um lock substituído no mesmo caminho",
-        identical(first$release(path), FALSE) && dir.exists(path) && !identical(owner$token, replacement$token))
+        all(identical(first$release(path), FALSE), dir.exists(path), !identical(owner$token, replacement$token)))
       context$check("metadados adicionais não substituem a identidade do proprietário",
-        identical(replacement$pid, Sys.getpid()) && replacement$token != "forged" && replacement$mode == "test")
+        all(identical(replacement$pid, Sys.getpid()), replacement$token != "forged", replacement$mode == "test"))
       alias <- file.path(dirname(path), ".", basename(path))
       context$check("proprietário libera o lock por caminho equivalente e a liberação é idempotente",
-        isTRUE(second$release(alias)) && !dir.exists(path) && isTRUE(second$release(path)))
+        all(isTRUE(second$release(alias)), !dir.exists(path), isTRUE(second$release(path))))
     },
     cleanup = function(context) {
       path <- context$track(tempfile("r6-lock-cleanup-"))
       lock <- private$new_lock(context)
       context$check("with_lock libera a aquisição quando o código protegido falha",
-        context$errors(lock$with_lock(path, stop("fixture failure"), timeout_seconds = 0)) && !dir.exists(path))
+        all(context$errors(lock$with_lock(path, stop("fixture failure"), timeout_seconds = 0)), !dir.exists(path)))
       other <- context$track(tempfile("r6-lock-independent-"))
       lock$acquire(path, timeout_seconds = 0)
       lock$acquire(other, timeout_seconds = 0)
       context$check("uma instância mantém a propriedade de aquisições independentes",
-        isTRUE(lock$release(path)) && dir.exists(other) && isTRUE(lock$release(other)))
+        all(isTRUE(lock$release(path)), dir.exists(other), isTRUE(lock$release(other))))
     },
     stale_owners = function(context) {
       path <- context$track(tempfile("r6-lock-stale-"))
@@ -49,17 +49,17 @@ ArtifactLockContract <- R6::R6Class(
       dir.create(path)
       jsonlite::write_json(list(pid = "invalid"), file.path(path, "owner.json"), auto_unbox = TRUE)
       context$check("proprietário malformado não permite remover um lock recém-criado",
-        context$errors(lock$acquire(path, timeout_seconds = 0, stale_seconds = 5)) && dir.exists(path))
+        all(context$errors(lock$acquire(path, timeout_seconds = 0, stale_seconds = 5)), dir.exists(path)))
       Sys.setFileTime(path, Sys.time() - 10)
       lock$acquire(path, timeout_seconds = 0, stale_seconds = 5)
       context$check("lock abandonado com proprietário inválido é recuperado após o prazo",
-        isTRUE(lock$release(path)) && !dir.exists(path))
+        all(isTRUE(lock$release(path)), !dir.exists(path)))
       if (dir.exists("/proc")) {
         dir.create(path)
         jsonlite::write_json(list(pid = .Machine$integer.max), file.path(path, "owner.json"), auto_unbox = TRUE)
         lock$acquire(path, timeout_seconds = 0)
         context$check("lock de processo inexistente é recuperado",
-          isTRUE(lock$release(path)) && !dir.exists(path))
+          all(isTRUE(lock$release(path)), !dir.exists(path)))
       }
     },
     new_lock = function(context) {

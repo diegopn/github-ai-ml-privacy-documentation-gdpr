@@ -60,11 +60,11 @@ ProjectConfig <- R6::R6Class(
       values <- private$settings[[section]]
       if (!is.list(values)) values <- list()
       value <- values[[key]]
-      if (is.null(value) || !length(value)) default else value
+      if (!length(value)) default else value
     },
     path = function(name, default = NULL) {
       value <- self$get("paths", name, default)
-      if (is.null(value) || !length(value)) stop(sprintf("Caminho não configurado: paths.%s", name), call. = FALSE)
+      if (!length(value)) stop(sprintf("Caminho não configurado: paths.%s", name), call. = FALSE)
       self$resolve(value)
     },
     resolve = function(path) {
@@ -190,7 +190,7 @@ ProjectConfig <- R6::R6Class(
       if (!is.character(value) || length(value) != 1L || is.na(value)) return(FALSE)
       date_format <- if (nchar(value) == 10L) "%Y-%m-%d" else "%Y-%m-%dT%H:%M:%SZ"
       parsed <- as.POSIXct(value, format = date_format, tz = "UTC")
-      !is.na(parsed) && identical(format(parsed, format = date_format, tz = "UTC"), value)
+      identical(format(parsed, format = date_format, tz = "UTC"), value)
     }
   ),
   lock_class = TRUE,

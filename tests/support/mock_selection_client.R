@@ -46,26 +46,26 @@ MockSelectionClient <- R6::R6Class(
     search_response = function(params) {
       topic <- private$topic_from_query(as.character(if (is.null(params$q)) "" else params$q))
       if (is.null(params$sort)) {
-        total <- if (identical(topic, private$topics[[1L]])) 101L else if (identical(topic, private$topics[[2L]])) 1L else 0L
+        total <- switch(as.character(match(topic, private$topics)), "1" = 101L, "2" = 1L, 0L)
         return(list(status = 200L, body = list(total_count = total, incomplete_results = FALSE), error = "", rate = list()))
       }
       page <- as.integer(params$page)
-      if (identical(topic, private$topics[[1L]]) && identical(page, 1L)) {
-        items <- private$page_one
-      } else if (identical(topic, private$topics[[1L]]) && identical(page, 2L)) {
-        items <- private$page_two
-      } else if (identical(topic, private$topics[[2L]])) {
-        items <- list(private$page_one[[1L]])
-      } else {
-        stop(sprintf("Página de busca inesperada para tópico %s", topic), call. = FALSE)
-      }
+      page <- if (length(page) == 1L) as.character(page) else ""
+      unexpected_page <- sprintf("Página de busca inesperada para tópico %s", topic)
+      items <- switch(as.character(match(topic, private$topics)),
+        "1" = switch(page, "1" = private$page_one, "2" = private$page_two,
+          stop(unexpected_page, call. = FALSE)),
+        "2" = list(private$page_one[[1L]]),
+        stop(unexpected_page, call. = FALSE)
+      )
       list(status = 200L, body = list(items = items, incomplete_results = FALSE), error = "", rate = list())
     },
     commit_response = function(path, params, return_headers) {
       repository <- sub("/commits$", "", sub("^/repos/", "", path))
-      if (!is.null(params$until) || !is.null(params$since)) {
-        date <- if (!is.null(params$until)) as.character(params$until) else as.character(params$since)
-        commit <- private$make_commit(date, paste0(repository, "-window"))
+      date <- params$until
+      if (is.null(date)) date <- params$since
+      if (!is.null(date)) {
+        commit <- private$make_commit(as.character(date), paste0(repository, "-window"))
         return(list(status = 200L, body = list(commit), error = "", rate = list()))
       }
       page <- as.integer(if (is.null(params$page)) 1L else params$page)

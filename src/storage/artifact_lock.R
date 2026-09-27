@@ -22,7 +22,7 @@ ArtifactLock <- R6::R6Class(
         return(invisible(TRUE))
       }
       owner <- private$read_lock_owner(path)
-      if (!is.list(owner) || !identical(owner$token, token) || !identical(owner$pid, Sys.getpid())) {
+      if (!is.list(owner) || !all(c(identical(owner$token, token), identical(owner$pid, Sys.getpid())))) {
         private$owned_locks[[key]] <- NULL
         return(invisible(FALSE))
       }
@@ -44,9 +44,8 @@ ArtifactLock <- R6::R6Class(
       file.path(normalizePath(dirname(path), mustWork = FALSE), basename(path))
     },
     process_is_alive = function(pid) {
-      if (!is.numeric(pid) || length(pid) != 1L || !is.finite(pid) || pid <= 0 || pid != floor(pid)) {
-        return(NA)
-      }
+      if (!is.numeric(pid) || length(pid) != 1L ||
+        !isTRUE(all(c(is.finite(pid), pid > 0, pid == floor(pid))))) return(NA)
       if (pid == Sys.getpid()) return(TRUE)
       # A missing /proc is not evidence that the owner process has exited.
       if (dir.exists("/proc")) file.exists(file.path("/proc", as.character(pid))) else NA
@@ -86,9 +85,9 @@ ArtifactLock <- R6::R6Class(
       owner <- private$read_lock_owner(path)
       owner_pid <- if (is.list(owner)) owner$pid else NULL
       owner_alive <- private$process_is_alive(owner_pid)
-      owner_known <- is.numeric(owner_pid) && length(owner_pid) == 1L && is.finite(owner_pid) &&
-        owner_pid > 0 && owner_pid == floor(owner_pid)
-      stale <- isFALSE(owner_alive) || (!owner_known && age > stale_seconds)
+      owner_known <- is.numeric(owner_pid) && length(owner_pid) == 1L &&
+        isTRUE(all(c(is.finite(owner_pid), owner_pid > 0, owner_pid == floor(owner_pid))))
+      stale <- any(c(isFALSE(owner_alive), !owner_known && age > stale_seconds))
       stale && unlink(path, recursive = TRUE, force = TRUE) == 0L
     },
     acquire_directory_lock = function(path, timeout_seconds, stale_seconds, metadata) {

@@ -15,6 +15,7 @@ PrivacyDocumentCatalog <- R6::R6Class(
       entries <- private$values$or_else(tree$tree, list())
       if (!is.list(entries) || !length(entries)) return(list())
       values <- list()
+      markers <- private$rule_set$privacy_markers()
       for (entry in entries) {
         if (private$values$scalar_text(entry$type, "") != "blob") next
         path <- private$values$scalar_text(entry$path, "")
@@ -22,18 +23,14 @@ PrivacyDocumentCatalog <- R6::R6Class(
         lower <- tolower(path)
         name <- basename(lower)
         root <- !grepl("/", lower, fixed = TRUE)
-        priority <- if (root && (name == "readme" || startsWith(name, "readme."))) {
-          0
-        } else if (any(vapply(private$rule_set$privacy_markers(), grepl, logical(1L), x = name,
-          fixed = TRUE))) {
-          1
-        } else if ((startsWith(lower, "docs/") || startsWith(lower, "doc/") ||
-          grepl("/docs/|/doc/", lower)) &&
-          any(vapply(private$rule_set$privacy_markers(), grepl, logical(1L), x = lower, fixed = TRUE))) {
-          2
-        } else {
-          next
-        }
+        priority <- c(0, 1, 2)[match(TRUE, c(
+          root && (name == "readme" || startsWith(name, "readme.")),
+          any(vapply(markers, grepl, logical(1L), x = name, fixed = TRUE)),
+          (startsWith(lower, "docs/") || startsWith(lower, "doc/") ||
+            grepl("/docs/|/doc/", lower)) &&
+            any(vapply(markers, grepl, logical(1L), x = lower, fixed = TRUE))
+        ), nomatch = 0L)]
+        if (!length(priority)) next
         values[[length(values) + 1L]] <- list(
           path = path,
           size = private$values$scalar_int(entry$size, -1L),

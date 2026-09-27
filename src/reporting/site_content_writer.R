@@ -45,10 +45,8 @@ SiteContentWriter <- R6::R6Class(
         stop("O template do site contém marcadores sem valor.", call. = FALSE)
       }
       output <- file.path(private$config$root(), "index.qmd")
-      if (file.exists(output)) {
-        current <- paste(readLines(output, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
-        if (identical(current, paste(template, collapse = "\n"))) return(invisible(output))
-      }
+      current <- if (file.exists(output)) paste(readLines(output, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+      if (identical(current, paste(template, collapse = "\n"))) return(invisible(output))
       private$store$write_lines(template, output)
       invisible(output)
     }

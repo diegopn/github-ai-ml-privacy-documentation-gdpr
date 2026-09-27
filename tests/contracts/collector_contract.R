@@ -21,23 +21,23 @@ CollectorContract <- R6::R6Class(
       records <- project$store$read_jsonl()
       record <- records[[1L]]
       context$check("coletor reúne os dois cortes com serviço GitHub R6 injetado",
-        length(records) == 1L && record$pre$commit$sha == "pre-sha" && record$post$commit$sha == "post-sha" &&
-          client$raw_call_count() == 1L)
+        all(length(records) == 1L, record$pre$commit$sha == "pre-sha", record$post$commit$sha == "post-sha",
+          client$raw_call_count() == 1L))
       context$check("checkpoint mantém esquema, protocolo e validação de pares completos",
-        identical(names(record), c("repository", "input_row", "source_sha256", "collector_protocol_version", "observed_at",
-          "accessibility", "pre", "post")) &&
+        all(identical(names(record), c("repository", "input_row", "source_sha256", "collector_protocol_version", "observed_at",
+          "accessibility", "pre", "post")),
           identical(names(record$pre), c("until", "commit_request_status", "commit_rate", "commit", "tree_request_status",
-            "tree_rate", "tree_truncated", "document_candidates", "documents", "classification_rule_version", "classification")) &&
+            "tree_rate", "tree_truncated", "document_candidates", "documents", "classification_rule_version", "classification")),
           length(project$store$read_complete_checkpoint(project$store$assert_published_sample(),
-            source_hash = project$store$hash_file(project$store$sample_path()))) == 1L &&
-          record$collector_protocol_version == context$protocol()$version())
+            source_hash = project$store$hash_file(project$store$sample_path()))) == 1L,
+          record$collector_protocol_version == context$protocol()$version()))
       original_hash <- project$store$hash_file(project$store$raw_path())
       for (mode in c("malformed_tree", "failed_download")) {
         failing_client <- MockCollectionClient$new(mode)
         failing_collector <- context$classes()$RepositoryCollector$new(project$config, failing_client,
           project$store, context$services()$classifier, context$services()$document_catalog, context$values(), context$protocol())
         context$check(paste("coleta preserva checkpoint anterior quando ocorre", mode),
-          context$errors(failing_collector$run()) && identical(original_hash, project$store$hash_file(project$store$raw_path())))
+          all(context$errors(failing_collector$run()), identical(original_hash, project$store$hash_file(project$store$raw_path()))))
         if (mode == "failed_download") context$check("falhas de download não são reutilizadas entre snapshots",
           failing_client$raw_call_count() == 2L)
       }

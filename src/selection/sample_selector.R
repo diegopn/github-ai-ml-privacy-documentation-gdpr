@@ -186,9 +186,8 @@ SampleSelector <- R6::R6Class(
       response$error <- message
       stop(private$client$response_condition(response, message))
     },
-    commits_path = function(repository) paste0("/repos/", repository, "/commits"),
     commit_activity = function(repository) {
-      path <- private$commits_path(repository)
+      path <- paste0("/repos/", repository, "/commits")
       newest <- private$selection_api(path, list(per_page = 1L), return_headers = TRUE)
       if (!is.list(newest$body) || !length(newest$body)) return(NULL)
       last_commit <- private$selection_time_from_commit(newest$body[[1L]])
@@ -204,7 +203,7 @@ SampleSelector <- R6::R6Class(
       list(first = first_commit, last = last_commit, months = max(0, days / 30.44))
     },
     activity_window = function(repository, settings) {
-      path <- private$commits_path(repository)
+      path <- paste0("/repos/", repository, "/commits")
       pre <- private$selection_api(path, list(until = settings$gdpr_date, per_page = 1L))$body
       post <- private$selection_api(path, list(since = settings$gdpr_date, per_page = 1L))$body
       list(pre = is.list(pre) && length(pre) > 0L, post = is.list(post) && length(post) > 0L)

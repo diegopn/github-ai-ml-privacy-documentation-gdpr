@@ -29,23 +29,23 @@ ReportWriterContract <- R6::R6Class(
       initial_sample <- utils::read.csv(file.path(paths$tables, "sample_used.csv"))
       summary <- utils::read.csv(file.path(paths$tables, "statistics_r.csv"))
       context$check("ReportWriter preserva a rastreabilidade e exporta somente a amostra final nos resultados",
-        nrow(dataset) == 5L && nrow(initial_sample) == 5L && nrow(analyzed) == 4L &&
-          identical(analyzed_sample$repository, analyzed$repository) &&
-          !any(analyzed$repository %in% fixture$stats$incomplete_repositories) &&
-          nrow(evidence) == 6L && all(nzchar(evidence$evidence)) &&
-          statistics$complete_pairs == 4L && sum(as.matrix(transition)) == 4L &&
-          all(evidence$repository %in% analyzed$repository) && all(evidence$included_in_paired_analysis) &&
-          identical(summary$indicador[[1L]], "repositorios_na_amostra_final_analisada") &&
-          summary$valor[[1L]] == statistics$complete_pairs && !"linhas_lidas" %in% summary$indicador &&
-          file.exists(file.path(report_root, "metadata", "manifest.json")))
+        all(nrow(dataset) == 5L, nrow(initial_sample) == 5L, nrow(analyzed) == 4L,
+          identical(analyzed_sample$repository, analyzed$repository),
+          !any(analyzed$repository %in% fixture$stats$incomplete_repositories),
+          nrow(evidence) == 6L, all(nzchar(evidence$evidence)),
+          statistics$complete_pairs == 4L, sum(as.matrix(transition)) == 4L,
+          all(evidence$repository %in% analyzed$repository), all(evidence$included_in_paired_analysis),
+          identical(summary$indicador[[1L]], "repositorios_na_amostra_final_analisada"),
+          summary$valor[[1L]] == statistics$complete_pairs, !"linhas_lidas" %in% summary$indicador,
+          file.exists(file.path(report_root, "metadata", "manifest.json"))))
       context$check("relatórios e gráficos descrevem os mesmos resultados calculados",
-        any(grepl("Repositórios na amostra final analisada: **4**", report, fixed = TRUE)) &&
-          file.info(file.path(report_root, "figures", "d1_pre_post.png"))$size > 0 &&
-          file.info(file.path(report_root, "figures", "criteria_post_gdpr.png"))$size > 0)
+        all(any(grepl("Repositórios na amostra final analisada: **4**", report, fixed = TRUE)),
+          file.info(file.path(report_root, "figures", "d1_pre_post.png"))$size > 0,
+          file.info(file.path(report_root, "figures", "criteria_post_gdpr.png"))$size > 0))
       manifest <- jsonlite::fromJSON(file.path(paths$metadata, "manifest.json"))
       context$check("manifesto referencia os artefatos no diretório de saída efetivamente utilizado",
-        file.path(report_root, "tables", "statistics_r.csv") %in% manifest$files &&
-          all(file.exists(vapply(manifest$files, context$config()$resolve, character(1L)))))
+        all(file.path(report_root, "tables", "statistics_r.csv") %in% manifest$files,
+          all(file.exists(vapply(manifest$files, context$config()$resolve, character(1L))))))
       invisible(TRUE)
     }
   ),

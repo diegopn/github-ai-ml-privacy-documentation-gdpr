@@ -22,7 +22,7 @@ DatasetBuilderContract <- R6::R6Class(
       cached_data <- builder$build(sample, list(record), "fixture-hash")$data
       recalculated <- builder$reclassify(sample, list(record), "fixture-hash")$data
       context$check("reclassificação ignora o cache e preserva os registros recebidos",
-        recalculated$pre_C1 == "1" && identical(record$pre$classification, cached))
+        all(recalculated$pre_C1 == "1", identical(record$pre$classification, cached)))
       malformed_cache <- cached
       malformed_cache$C1 <- 1L
       malformed_cache$score <- 1L
@@ -34,17 +34,17 @@ DatasetBuilderContract <- R6::R6Class(
       invalid_binary_record$pre$classification["C2"] <- list(NULL)
       invalid_binary <- builder$build(sample, list(invalid_binary_record), "fixture-hash")$data
       context$check("cache exige um valor escalar por critério e reclassifica estruturas inválidas",
-        invalid_binary$pre_C1 == "1" && nzchar(invalid_binary$pre_C1_evidence))
+        all(invalid_binary$pre_C1 == "1", nzchar(invalid_binary$pre_C1_evidence)))
       legacy_record <- record
       legacy_record$pre$classification_rule_version <- "semantic-conservative-2026-09-c1-c4"
       legacy_data <- builder$build(sample, list(legacy_record), "fixture-hash")$data
       unknown_tree_data <- builder$build(sample, list(record), "fixture-hash")$data
       context$check("dataset valida cache por versão/evidência e trata árvore sem estado como truncada",
-        nrow(cached_data) == 1L && ncol(cached_data) == 82L && cached_data$pre_D1 == "0" &&
-          recalculated$pre_D1 == "1" && recalculated$pre_C1 == "1" &&
-          malformed_data$pre_C1 == "1" && nzchar(malformed_data$pre_C1_evidence) &&
-          legacy_data$pre_D1 == "1" && legacy_data$pre_C1 == "1" &&
-          unknown_tree_data$pre_tree_truncated == "TRUE" && unknown_tree_data$post_tree_truncated == "TRUE")
+        all(nrow(cached_data) == 1L, ncol(cached_data) == 82L, cached_data$pre_D1 == "0",
+          recalculated$pre_D1 == "1", recalculated$pre_C1 == "1",
+          malformed_data$pre_C1 == "1", nzchar(malformed_data$pre_C1_evidence),
+          legacy_data$pre_D1 == "1", legacy_data$pre_C1 == "1",
+          unknown_tree_data$pre_tree_truncated == "TRUE", unknown_tree_data$post_tree_truncated == "TRUE"))
       inconsistent <- record
       inconsistent$pre$classification$C1 <- 1L
       inconsistent$pre$classification$score <- 1L
@@ -56,7 +56,7 @@ DatasetBuilderContract <- R6::R6Class(
       malformed$post$classification$C1 <- list(0L)
       rebuilt <- builder$build(sample, list(malformed), "fixture-hash")$data
       context$check("cache rejeita textos vetoriais e números encapsulados em listas",
-        rebuilt$pre_D1 == "1" && rebuilt$post_D1 == "1")
+        all(rebuilt$pre_D1 == "1", rebuilt$post_D1 == "1"))
       invisible(TRUE)
     }
   ),

@@ -16,8 +16,8 @@ RunnerContract <- R6::R6Class(
       runner$run("run")
       status <- jsonlite::fromJSON(file.path(project$root, "outputs", "metadata", "run_status.json"), simplifyVector = FALSE)
       context$check("runner executa etapas na ordem e grava status final",
-        identical(recorder$items(), c("selection", "collection", "analysis", "site")) &&
-          identical(status$state, "completed") && length(status$stages) == 4L)
+        all(identical(recorder$items(), c("selection", "collection", "analysis", "site")),
+          identical(status$state, "completed"), length(status$stages) == 4L))
       rate_limit <- structure(list(message = "rate limit", call = NULL, rate_limited = TRUE),
         class = c("github_rate_limit_error", "github_api_error", "error", "condition"))
       paused_recorder <- MockRunRecorder$new()

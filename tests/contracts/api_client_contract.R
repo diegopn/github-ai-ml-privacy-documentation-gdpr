@@ -25,7 +25,7 @@ ApiClientContract <- R6::R6Class(
         bundle <- context$new_http_client(project$config, project$store, MockRuntime$new(), wire)
         result <- bundle$client$graphql("query { viewer { login } }")
         context$check(paste("GraphQL rejeita corpo sem objeto data/errors:", payload),
-          !bundle$client$response_ok(result) && nzchar(result$error))
+          all(!bundle$client$response_ok(result), nzchar(result$error)))
       }
       project <- context$new_test_project()
       wire <- MockHttpTransport$new(responses = list(list(status = 200L,
@@ -33,8 +33,8 @@ ApiClientContract <- R6::R6Class(
       bundle <- context$new_http_client(project$config, project$store, MockRuntime$new(), wire)
       result <- bundle$client$graphql("query { viewer { login } }")
       context$check("GraphQL reconhece RATE_LIMITED no campo type da resposta GitHub",
-        !bundle$client$response_ok(result) && isTRUE(result$rate_limited) &&
-          inherits(bundle$client$response_condition(result), "github_rate_limit_error"))
+        all(!bundle$client$response_ok(result), isTRUE(result$rate_limited),
+          inherits(bundle$client$response_condition(result), "github_rate_limit_error")))
       context$check("condição de erro nativa preserva mensagem alternativa e classes da API",
         conditionMessage(bundle$client$response_condition(list(status = 500L, error = ""), "falha esperada")) == "falha esperada")
     },
@@ -49,14 +49,14 @@ ApiClientContract <- R6::R6Class(
       state_path <- project$config$resolve(project$config$get("api", "rate_state_path"))
       before <- project$store$hash_file(state_path)
       context$check("uma espera rejeitada não reserva uma chamada futura no estado compartilhado",
-        context$errors(bundle$limiter$wait_for_slot("core")) && identical(before, project$store$hash_file(state_path)))
+        all(context$errors(bundle$limiter$wait_for_slot("core")), identical(before, project$store$hash_file(state_path))))
       project <- context$new_test_project(list(max_rate_wait_seconds = 2))
       runtime <- MockRuntime$new(1000)
       wire <- MockHttpTransport$new("rate_then_success")
       bundle <- context$new_http_client(project$config, project$store, runtime, wire)
       result <- bundle$client$api("/repos/owner/project")
       context$check("orçamento de espera inclui a margem de segurança do Retry-After",
-        result$status == 429L && wire$request_count() == 1L && runtime$now() == 1000)
+        all(result$status == 429L, wire$request_count() == 1L, runtime$now() == 1000))
     },
     url_encoding = function(context) {
       project <- context$new_test_project()
@@ -66,8 +66,8 @@ ApiClientContract <- R6::R6Class(
       raw_url <- wire$last_url()
       bundle$client$api("/search/repositories", list(q = "100% data&x"))
       context$check("URLs codificam percentuais literais, espaços e separadores nos valores",
-        grepl("docs/100%25/20%2520.md", raw_url, fixed = TRUE) &&
-          grepl("q=100%25%20data%26x", wire$last_url(), fixed = TRUE))
+        all(grepl("docs/100%25/20%2520.md", raw_url, fixed = TRUE),
+          grepl("q=100%25%20data%26x", wire$last_url(), fixed = TRUE)))
     },
     explicit_requests = function(context) {
       project <- context$new_test_project()
@@ -76,12 +76,12 @@ ApiClientContract <- R6::R6Class(
       explicit <- transport$request_json("https://example.test", "core", return_headers = TRUE)
       without_headers <- transport$request_json("https://example.test", "core")
       context$check("requisições JSON explícitas preservam retorno, headers e bloco HTTP final",
-        isTRUE(explicit$body$ok) && is.null(without_headers$headers) &&
-          explicit$rate$github_remaining == "10" && length(explicit$headers) == 5L)
+        all(isTRUE(explicit$body$ok), is.null(without_headers$headers),
+          explicit$rate$github_remaining == "10", length(explicit$headers) == 5L))
       raw_bundle <- context$new_http_client(project$config, project$store, MockRuntime$new(), MockHttpTransport$new("raw_bom"))
       explicit_text <- raw_bundle$http_transport$request_text("https://example.test", "raw")
       context$check("requisições textuais explícitas preservam o corpo e o BOM",
-        explicit_text$status == 200L && identical(explicit_text$body, paste0("\ufeff", "text")))
+        all(explicit_text$status == 200L, identical(explicit_text$body, paste0("\ufeff", "text"))))
     },
     retry_limits = function(context) {
       project <- context$new_test_project()
@@ -90,19 +90,19 @@ ApiClientContract <- R6::R6Class(
       bundle <- context$new_http_client(project$config, project$store, runtime, wire)
       response <- bundle$client$api("/repos/owner/project")
       context$check("erro transitório persistente respeita número máximo de tentativas",
-        response$status == 503L && wire$request_count() == 2L && runtime$now() == 8001)
+        all(response$status == 503L, wire$request_count() == 2L, runtime$now() == 8001))
       wire <- MockHttpTransport$new("transport_error")
       bundle <- context$new_http_client(project$config, project$store, MockRuntime$new(9000), wire)
       response <- bundle$http_transport$request_text("https://example.test", "raw")
       context$check("falha de transporte não transforma HTTP 200 parcial em sucesso",
-        response$status == 0L && wire$request_count() == 2L && grepl("timeout", response$error, fixed = TRUE))
+        all(response$status == 0L, wire$request_count() == 2L, grepl("timeout", response$error, fixed = TRUE)))
       project <- context$new_test_project(list(max_rate_wait_seconds = 10))
       runtime <- MockRuntime$new(10000)
       wire <- MockHttpTransport$new("rate_then_success")
       bundle <- context$new_http_client(project$config, project$store, runtime, wire)
       response <- bundle$client$api("/repos/owner/project")
       context$check("rate limit recuperável aguarda o prazo e repete a mesma operação",
-        response$status == 200L && wire$request_count() == 2L && runtime$now() == 10003)
+        all(response$status == 200L, wire$request_count() == 2L, runtime$now() == 10003))
     },
     transient_retry = function(context) {
       project <- context$new_test_project()
@@ -111,7 +111,7 @@ ApiClientContract <- R6::R6Class(
       bundle <- context$new_http_client(project$config, project$store, runtime, wire)
       response <- bundle$client$api("/repos/owner/project")
       context$check("cliente HTTP repete erro transitório usando transporte e relógio injetados",
-        response$status == 200L && isTRUE(response$body$ok) && wire$request_count() == 2L && runtime$now() >= 1001)
+        all(response$status == 200L, isTRUE(response$body$ok), wire$request_count() == 2L, runtime$now() >= 1001))
     },
     graphql_rate_limit = function(context) {
       project <- context$new_test_project()
@@ -123,8 +123,8 @@ ApiClientContract <- R6::R6Class(
       rate_state_path <- project$config$resolve(project$config$get("api", "rate_state_path", "outputs/metadata/github_api_rate_state.json"))
       rate_state <- jsonlite::fromJSON(rate_state_path, simplifyVector = FALSE)
       context$check("erro GraphQL estruturado vira rate limit e registra o adiamento",
-        graphql_bundle$client$is_rate_limit_error(graphql_condition) &&
-          rate_state$not_before$graphql > graphql_runtime$now())
+        all(graphql_bundle$client$is_rate_limit_error(graphql_condition),
+          rate_state$not_before$graphql > graphql_runtime$now()))
     },
     response_errors = function(context) {
       project <- context$new_test_project()
@@ -132,13 +132,13 @@ ApiClientContract <- R6::R6Class(
         MockHttpTransport$new("malformed_graphql_errors"))
       malformed_graphql <- malformed_graphql_bundle$client$graphql("query { viewer { login } }")
       context$check("cliente rejeita errors GraphQL fora do formato sem erro de coerção",
-        !malformed_graphql_bundle$client$response_ok(malformed_graphql) &&
-          grepl("formato inválido", malformed_graphql$error, fixed = TRUE))
+        all(!malformed_graphql_bundle$client$response_ok(malformed_graphql),
+          grepl("formato inválido", malformed_graphql$error, fixed = TRUE)))
       permission_bundle <- context$new_http_client(project$config, project$store, MockRuntime$new(3000),
         MockHttpTransport$new("permission"))
       permission <- permission_bundle$client$api("/repos/owner/private")
       context$check("403 de permissão com quota disponível não é classificado como rate limit",
-        permission$status == 403L && !isTRUE(permission$rate_limited))
+        all(permission$status == 403L, !isTRUE(permission$rate_limited)))
     },
     corrupt_rate_state = function(context) {
       project <- context$new_test_project()
@@ -168,8 +168,8 @@ ApiClientContract <- R6::R6Class(
       raw_bundle <- context$new_http_client(project$config, project$store, MockRuntime$new(3002), raw_wire)
       raw_document <- raw_bundle$client$raw("owner/project", "commit", "README.md")
       context$check("download de arquivo público não envia token ao host raw do GitHub",
-        raw_document$status == 200L && identical(raw_document$text, "public README content") &&
-          identical(raw_wire$last_authorization(), ""))
+        all(raw_document$status == 200L, identical(raw_document$text, "public README content"),
+          identical(raw_wire$last_authorization(), "")))
     },
     bounded_rate_wait = function(context) {
       project <- context$new_test_project()
@@ -178,7 +178,7 @@ ApiClientContract <- R6::R6Class(
       rate_bundle <- context$new_http_client(project$config, project$store, rate_runtime, rate_wire)
       rate_response <- rate_bundle$client$api("/repos/owner/project")
       context$check("limite máximo de espera zero encerra 429 sem retry ou pausa implícita",
-        rate_response$status == 429L && rate_wire$request_count() == 1L && rate_runtime$now() == 4000)
+        all(rate_response$status == 429L, rate_wire$request_count() == 1L, rate_runtime$now() == 4000))
     },
     json_decoding = function(context) {
       project <- context$new_test_project()
@@ -186,12 +186,12 @@ ApiClientContract <- R6::R6Class(
         MockHttpTransport$new("json_bom"))
       bom_response <- bom_bundle$client$api("/repos/owner/project")
       context$check("resposta JSON com BOM é interpretada sem alterar o status HTTP",
-        bom_response$status == 200L && isTRUE(bom_response$body$ok))
+        all(bom_response$status == 200L, isTRUE(bom_response$body$ok)))
       malformed_bundle <- context$new_http_client(project$config, project$store, MockRuntime$new(6000),
         MockHttpTransport$new("malformed_json"))
       malformed_response <- malformed_bundle$client$api("/repos/owner/project")
       context$check("JSON inválido em HTTP 200 é tratado como resposta falha",
-        !malformed_bundle$client$response_ok(malformed_response) && nzchar(malformed_response$error))
+        all(!malformed_bundle$client$response_ok(malformed_response), nzchar(malformed_response$error)))
     }
   ),
   lock_class = TRUE,

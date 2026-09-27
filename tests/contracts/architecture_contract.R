@@ -9,20 +9,20 @@ ArchitectureContract <- R6::R6Class(
       source_ok <- all(vapply(source_files, private$is_single_r6_class, logical(1L)))
       test_ok <- all(vapply(test_files, private$is_single_r6_class, logical(1L)))
       context$check("cada arquivo R de src e tests contém somente uma declaração de classe R6",
-        source_ok && test_ok)
+        all(source_ok, test_ok))
       page <- readLines(file.path(context$project_root(), "index.qmd"), warn = FALSE)
       context$check("a página Quarto usa artefatos sem executar código R procedural",
-        !any(grepl("```{r", page, fixed = TRUE)) && !any(grepl("`r ", page, fixed = TRUE)))
+        all(!any(grepl("```{r", page, fixed = TRUE)), !any(grepl("`r ", page, fixed = TRUE))))
       text <- unlist(lapply(source_files, readLines, warn = FALSE), use.names = FALSE)
       forbidden <- c("%||%", "bootstrap_project <- function", "CLI_MODES <-", "PIPELINE_STAGES <-",
         "write_file = function", " transport = function", " site_renderer = function")
       context$check("produção não mantém funções globais, callbacks de serviço nem constantes de pipeline",
         !any(vapply(forbidden, grepl, logical(1L), x = paste(text, collapse = "\n"), fixed = TRUE)))
       context$check("serviços e doubles usados pela suíte são objetos R6",
-        inherits(context$services()$client, "GitHubClient") && inherits(context$services()$http_transport, "GitHubHttpTransport") &&
-          inherits(context$services()$document_catalog, "PrivacyDocumentCatalog") &&
-          inherits(MockSelectionClient$new(character(), list(), list()), "MockSelectionClient") &&
-          inherits(MockCollectionClient$new(), "MockCollectionClient") && inherits(MockHttpTransport$new("retry"), "MockHttpTransport"))
+        all(inherits(context$services()$client, "GitHubClient"), inherits(context$services()$http_transport, "GitHubHttpTransport"),
+          inherits(context$services()$document_catalog, "PrivacyDocumentCatalog"),
+          inherits(MockSelectionClient$new(character(), list(), list()), "MockSelectionClient"),
+          inherits(MockCollectionClient$new(), "MockCollectionClient"), inherits(MockHttpTransport$new("retry"), "MockHttpTransport")))
       invisible(TRUE)
     }
   ),

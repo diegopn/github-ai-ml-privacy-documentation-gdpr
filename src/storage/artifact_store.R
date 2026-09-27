@@ -71,7 +71,7 @@ ArtifactStore <- R6::R6Class(
       data, path, utils::write.csv, row.names = row.names, fileEncoding = fileEncoding, na = na),
 
     hash_file = function(path) {
-      if (!is.character(path) || length(path) != 1L || is.na(path) || !file.exists(path)) {
+      if (!is.character(path) || length(path) != 1L || !all(c(!is.na(path), file.exists(path)))) {
         stop("Arquivo não encontrado para hash.", call. = FALSE)
       }
       result <- unname(tools::sha256sum(path))
@@ -94,7 +94,7 @@ ArtifactStore <- R6::R6Class(
               call. = FALSE)
       repositories <- as.character(sample$repository)
       normalized_repositories <- trimws(repositories)
-      if (anyNA(repositories) || any(!nzchar(normalized_repositories))) {
+      if (any(c(anyNA(repositories), any(!nzchar(normalized_repositories))))) {
           stop("A amostra contém repositório vazio.", call. = FALSE)
       }
       if (any(repositories != normalized_repositories)) {
@@ -102,8 +102,8 @@ ArtifactStore <- R6::R6Class(
               call. = FALSE)
       }
       valid_repository <- vapply(strsplit(repositories, "/", fixed = TRUE), function(parts) {
-          length(parts) == 2L && all(nzchar(parts)) && !any(parts %in% c(".", "..")) && all(grepl("^[[:alnum:]_.-]+$",
-              parts))
+          all(c(length(parts) == 2L, all(nzchar(parts)), !any(parts %in% c(".", "..")),
+            all(grepl("^[[:alnum:]_.-]+$", parts))))
       }, logical(1L))
       if (any(!valid_repository)) {
           stop("A amostra contém um identificador de repositório GitHub inválido.", call. = FALSE)
@@ -140,7 +140,7 @@ ArtifactStore <- R6::R6Class(
       digest <- self$hash_file(path)
       hash_path <- self$sample_hash_path()
       audit_path <- self$audit_path()
-      if (!file.exists(hash_path) || !file.exists(audit_path)) {
+      if (!all(file.exists(c(hash_path, audit_path)))) {
           stop("A amostra não tem manifesto persistente de seleção. Execute Rscript main.R --select.",
               call. = FALSE)
       }
@@ -168,8 +168,8 @@ ArtifactStore <- R6::R6Class(
         if (is.character(repository) && length(repository) == 1L && !is.na(repository)) repository else ""
       }, character(1L))
       repositories <- as.character(sample$repository)
-      if (any(!nzchar(identities)) || anyDuplicated(identities) ||
-        length(identities) != length(repositories) || !setequal(identities, repositories)) {
+      if (any(c(any(!nzchar(identities)), anyDuplicated(identities) > 0L,
+        length(identities) != length(repositories), !setequal(identities, repositories)))) {
         stop("O checkpoint precisa conter exatamente um registro por repositório da amostra.", call. = FALSE)
       }
       records <- records[match(repositories, identities)]
@@ -247,7 +247,7 @@ ArtifactStore <- R6::R6Class(
           if (!success) {
               for (target in committed) {
                   index <- match(target, targets)
-                  if (prepared$had_target[[index]] && file.exists(prepared$backups[[index]])) {
+                  if (all(c(prepared$had_target[[index]], file.exists(prepared$backups[[index]])))) {
                     file.copy(prepared$backups[[index]], target, overwrite = TRUE)
                   } else {
                     unlink(target, force = TRUE)

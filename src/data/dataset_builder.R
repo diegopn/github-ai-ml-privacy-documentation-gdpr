@@ -170,36 +170,34 @@ DatasetBuilder <- R6::R6Class(
       observations
     },
     classification_cache_is_usable = function(classification, rule_version) {
-      if (!is.list(classification) || !identical(rule_version, private$classifier$rule_version())) {
-        return(FALSE)
-      }
+      if (!is.list(classification) || !identical(rule_version, private$classifier$rule_version())) return(FALSE)
       criteria <- private$classifier$criterion_codes()
       required <- c("D1", criteria, "score", "D1_evidence", "note", "evidence")
-      if (anyDuplicated(names(classification)) || !all(required %in% names(classification)) ||
-        !is.list(classification$evidence) || anyDuplicated(names(classification$evidence))) {
-        return(FALSE)
-      }
-      text_fields <- c(classification[c("D1_evidence", "note")], classification$evidence)
-      if (!all(vapply(text_fields, function(value) {
-        is.character(value) && length(value) == 1L && !is.na(value)
-      }, logical(1L)))) return(FALSE)
+      if (anyDuplicated(names(classification)) || !all(required %in% names(classification))) return(FALSE)
+      evidence <- classification$evidence
+      if (!is.list(evidence) || anyDuplicated(names(evidence))) return(FALSE)
+      text_fields <- c(classification[c("D1_evidence", "note")], evidence)
+      if (!all(vapply(text_fields, is.character, logical(1L))) ||
+        any(lengths(text_fields) != 1L) || anyNA(unlist(text_fields))) return(FALSE)
       binary_values <- vapply(classification[c("D1", criteria)], private$cache_number, numeric(1L))
       score <- private$cache_number(classification$score)
-      if (any(!is.finite(binary_values)) || any(!binary_values %in% c(0, 1)) || !is.finite(score)) {
-        return(FALSE)
-      }
-      criterion_values <- binary_values[-1L] == 1
-      criterion_evidence <- vapply(criteria, function(code) {
-        nzchar(private$values$scalar_text(classification$evidence[[code]], ""))
-      }, logical(1L))
-      score == sum(binary_values[-1L]) && (score == 0 || binary_values[[1L]] == 1) &&
-        all(criterion_values == criterion_evidence) &&
-        identical(as.integer(binary_values[[1L]]), as.integer(nzchar(private$values$scalar_text(classification$D1_evidence, ""))))
+      if (!all(c(
+        all(is.finite(binary_values)), all(binary_values %in% c(0, 1)), is.finite(score)
+      ))) return(FALSE)
+      criterion_values <- binary_values[criteria] == 1
+      criterion_evidence <- nzchar(vapply(
+        evidence[criteria], private$values$scalar_text, character(1L), default = ""
+      ))
+      all(c(
+        score == sum(criterion_values), score == 0 | binary_values[[1L]] == 1,
+        all(criterion_values == criterion_evidence),
+        binary_values[[1L]] == nzchar(private$values$scalar_text(classification$D1_evidence, ""))
+      ))
     },
     cache_number = function(value) {
-      if ((!is.numeric(value) && !is.character(value)) || length(value) != 1L || is.na(value)) return(NA_real_)
+      if (!is.numeric(value) && !is.character(value)) return(NA_real_)
       parsed <- suppressWarnings(as.numeric(value))
-      if (is.finite(parsed)) parsed else NA_real_
+      if (length(parsed) == 1L && is.finite(parsed)) parsed else NA_real_
     }
   ),
   lock_class = TRUE,
