@@ -7,7 +7,7 @@ Este projeto executa a coleta, a classificação textual e a análise estatísti
 ## Entrada e desenho
 
 - CSV de entrada: `inputs/final/selected_repositories.csv`.
-- SHA-256 do CSV: `3087ffb546a8d2b949e06cc3cad3acf9f6639a9fb70e348cb33318cb5e87a4db`.
+- SHA-256 do CSV: `3cf72db95b71dcd32a1e87d6b5c2b9c46aa13dd705ef7267ae773ce0b01623bf`.
 - Linhas da amostra: **474**.
 - Protocolos de coleta presentes no checkpoint: `open-source-no-size-limit-expanded-topics-2026-09`.
 - Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.
@@ -28,12 +28,12 @@ D1 indica presença de evidência documental contextualizada. O PDE Score soma C
 
 ## Resultados
 
-- D1 pré: **3/474** (0.6%).
-- D1 pós: **29/474** (6.1%).
-- Pares completos: **474**.
-- Score médio pré/pós: **0.011 / 0.135**.
-- McNemar exato bicaudal: **p=2.16e-07**.
-- Wilcoxon exato bicaudal: **p=1.19e-07**.
+- D1 pré: **3/473** (0.6%).
+- D1 pós: **27/473** (5.7%).
+- Pares completos: **473**.
+- Score médio pré/pós: **0.011 / 0.127**.
+- McNemar exato bicaudal: **p=8.05e-07**.
+- Wilcoxon exato bicaudal: **p=2.38e-07**.
 
 ## Limitações
 
@@ -43,5 +43,5 @@ Documentos externos ao repositório, práticas não versionadas e textos que nã
 
 A coleta grava um checkpoint JSONL em `inputs/raw/repository_results.jsonl`. A análise pode ser repetida sem acesso à API usando o mesmo CSV e esse checkpoint. O dataset, as estatísticas e os relatórios são derivados desses arquivos.
 
-Versão das regras: `semantic-conservative-2026-09-c1-c4`.
+Versão das regras: `semantic-conservative-2026-09-c1-c4-r2`.
 Linhas no dataset final: **474**.

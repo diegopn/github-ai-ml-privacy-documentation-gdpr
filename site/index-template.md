@@ -1,0 +1,339 @@
+---
+title: "Experimento de documentação de privacidade"
+subtitle: "Projetos open source de IA/ML identificados por busca temática"
+---
+
+{{site_data}}
+
+::: {.hero-note #hero-note}
+Esta página reúne a amostra, os documentos recuperados, as evidências
+textuais, a metodologia, os resultados estatísticos e as instruções de
+reprodução. Os valores exibidos são gerados diretamente dos artefatos
+versionados no repositório.
+:::
+
+## Visão geral {#visao-geral}
+
+::: {.metric-grid}
+::: {.metric-card}
+### {{total}}
+Repositórios na amostra
+:::
+
+::: {.metric-card}
+### {{complete_pairs}}
+Pares históricos completos
+:::
+
+::: {.metric-card}
+### {{post_d1}}
+D1 no período pós-GDPR
+:::
+
+::: {.metric-card}
+### {{post_mean}}
+PDE Score médio pós-GDPR
+:::
+:::
+
+## Resultado principal {#resultado-principal}
+
+::: {data-i18n-template="main-result"}
+No período pré-GDPR, {{pre_d1}} de {{complete_pairs}} repositórios
+apresentaram evidência documental de privacidade (D1=1). No período pós-GDPR,
+foram {{post_d1}} repositórios. O teste exato de McNemar bicaudal resultou em
+{{mcnemar_p}}.
+:::
+
+::: {data-i18n-template="score-result"}
+O PDE Score médio passou de {{pre_score}} para
+{{post_score}}. O teste exato de Wilcoxon pareado resultou em
+{{wilcoxon_p}}.
+:::
+
+## Cobertura do vocabulário {#cobertura-vocabulario}
+
+::: {data-i18n-template="vocabulary-coverage"}
+A busca usa {{topic_count}} tópicos de IA/ML, incluindo subdomínios
+e áreas recentes. Os mesmos critérios de elegibilidade e análise documental são
+aplicados a todos os resultados; os tópicos servem como sinais de descoberta,
+não como prova automática de escopo técnico.
+:::
+
+{{topic_table}}
+
+## Resultados detalhados {#resultados}
+
+### Presença documental (D1)
+
+![]({{output_root}}/figures/d1_pre_post.png)
+
+| Medida | Resultado |
+|---|---:|
+| D1 pré-GDPR | {{pre_d1}} ({{pre_proportion}}) |
+| D1 pós-GDPR | {{post_d1}} ({{post_proportion}}) |
+| Pré 1 → pós 0 | {{losses}} |
+| Pré 0 → pós 1 | {{gains}} |
+| p exato de McNemar bicaudal | {{mcnemar_p}} |
+
+### PDE Score
+
+![]({{output_root}}/figures/criteria_post_gdpr.png)
+
+| Medida | Pré | Pós |
+|---|---:|---:|
+| Média | {{pre_mean}} | {{post_mean}} |
+| Mediana | {{pre_median}} | {{post_median}} |
+| IQR | {{pre_iqr}} | {{post_iqr}} |
+
+| Medida pareada | Resultado |
+|---|---:|
+| Aumentos / reduções / iguais | {{increased}} / {{decreased}} / {{unchanged}} |
+| W+ / W− | {{w_plus}} / {{w_minus}} |
+| p exato de Wilcoxon bicaudal | {{wilcoxon_p}} |
+| Correlação bisserial de postos | {{rank_biserial}} |
+
+### Frequência dos critérios
+
+{{criteria_table}}
+
+### Transições observadas em D1
+
+{{transition_table}}
+
+## Dados coletados {#dados}
+
+### Amostra
+
+::: {data-i18n-template="sample-description"}
+A amostra contém {{sample_rows}} repositórios com licença identificada por
+SPDX e aprovada pela OSI.
+:::
+
+::: {data-i18n="sampleFilesText"}
+O arquivo usado pelo pipeline está disponível em
+[selected_repositories.csv]({{sample_path}}). O
+vocabulário configurado está em
+[ai_ml_topics_used.csv](inputs/reference/ai_ml_topics_used.csv).
+:::
+
+### Arquivos para inspeção
+
+::: {data-i18n="inspectionIntro"}
+Os registros detalhados não são repetidos na página. A relação completa dos
+repositórios, documentos, classificações, evidências e metadados permanece
+disponível nos arquivos versionados abaixo:
+:::
+
+::: {data-i18n="dataLinksList"}
+- [Dataset final completo]({{output_root}}/tables/final_privacy_gdpr_dataset.csv)
+- [Amostra utilizada]({{output_root}}/tables/sample_used.csv)
+- [Evidências positivas]({{output_root}}/tables/positive_evidence.csv)
+- [Checkpoint bruto JSONL]({{raw_path}})
+- [Manifesto da execução]({{output_root}}/metadata/manifest.json)
+:::
+::: {data-i18n-template="selection-manifest"}
+{{manifest_link}}
+:::
+
+## Metodologia {#metodologia}
+
+### Desenho
+
+::: {data-i18n="designText"}
+O estudo compara o mesmo conjunto de repositórios em dois snapshots
+históricos: o último commit até `{{pre_until}}` e o último commit até
+`{{post_until}}`. A unidade de análise é o repositório público de IA/ML.
+:::
+
+```{mermaid}
+%%{init: {"themeVariables": {"fontSize": "18px", "fontFamily": "Montserrat, Arial, sans-serif"}, "flowchart": {"nodeSpacing": 64, "rankSpacing": 88, "diagramPadding": 28, "wrappingWidth": 300, "minNodeWidth": 280}}}%%
+flowchart TD
+  A[Busca por {{topic_count}} tópicos IA/ML] --> B[Particionamento temporal até {{search_limit}} resultados]
+  B --> C[Filtros de seleção preservados]
+  C --> D[Amostra congelada]
+  D --> E[Snapshot pré-GDPR]
+  D --> F[Snapshot pós-GDPR]
+  E --> G[Classificação C1-C7 e D1]
+  F --> G
+  G --> H[McNemar e Wilcoxon]
+  H --> I[Dataset, relatórios e site]
+```
+
+### Seleção da amostra
+
+::: {data-i18n-template="selection-description"}
+O seletor consulta {{topic_count}} tópicos configurados em
+`config/settings.yml`, que abrangem áreas como visão computacional, processamento de
+linguagem natural, detecção de objetos, LLMs, transformers, IA generativa,
+difusão, multimodalidade, RAG e agentes. Em seguida, aplica os critérios de
+visibilidade pública, licença SPDX/OSI aprovada, ausência de fork e
+arquivamento, criação anterior a `{{gdpr_date}}`, pelo menos {{min_stars}} estrelas,
+pelo menos {{min_issues}} issues reais, atividade mínima de {{min_activity_months}} meses e atividade antes e
+depois da data de referência.
+:::
+
+::: {data-i18n="partitionText"}
+As consultas são particionadas por data de criação quando a contagem ultrapassa
+o limite de 1.000 resultados da Search API. As partições e páginas baixadas
+ficam registradas no manifesto de seleção.
+:::
+
+::: {data-i18n-template="selection-manifest"}
+{{manifest_status}}
+:::
+
+::: {data-i18n="selectionAfter"}
+A primeira etapa é `Rscript main.R --select`: ela cria uma amostra nova e coleta
+os snapshots históricos desses repositórios. Depois, `Rscript main.R --analyze`
+valida a coleta, refaz a análise offline e gera o site. O comando
+`Rscript main.R --run` executa o processo inteiro do início ao fim.
+:::
+
+### Documentação e critérios
+
+::: {data-i18n="documentationIntro"}
+São analisados README de raiz e documentos textuais cujos nomes ou caminhos
+indicam privacidade, segurança, proteção de dados, termos, consentimento,
+retenção ou conformidade. D1 indica evidência documental contextualizada. O
+PDE Score soma sete critérios:
+:::
+
+::: {data-i18n="criteriaList"}
+1. dados pessoais;
+2. finalidade do tratamento;
+3. base legal;
+4. direitos dos titulares;
+5. retenção ou exclusão;
+6. compartilhamento ou transferência;
+7. proteção contra vazamento ou acesso não autorizado.
+:::
+
+::: {data-i18n="documentationNegative"}
+Menções isoladas, bibliografia, testes, exemplos, dependências e listas de
+links não são suficientes para marcar um critério.
+:::
+
+### Estatística
+
+::: {data-i18n="statisticsText"}
+Para D1, o pipeline calcula o teste exato de McNemar bicaudal. Para o PDE
+Score, calcula o teste exato de Wilcoxon pareado bicaudal, excluindo diferenças zero e
+usando postos médios em empates. O nível de significância adotado é
+$\alpha={{alpha}}$.
+:::
+
+::: {.pvalue-note}
+::: {data-i18n-template="pvalue-explanation"}
+O *p-value* é a probabilidade de observar um resultado tão extremo quanto o
+obtido, ou mais extremo, supondo que a hipótese nula (H0) seja verdadeira. Com
+$\alpha={{alpha}}$, um *p-value* menor que α leva à rejeição de H0; um valor maior
+ou igual a α não permite rejeitá-la. Essa decisão não prova H1 nem transforma
+H0 em uma verdade automática.
+:::
+
+::: {data-i18n-template="pvalue-result"}
+Neste estudo, o *p-value* exato de McNemar foi {{mcnemar_p}}
+e o de Wilcoxon foi {{wilcoxon_p}}. A decisão estatística deve
+ser atualizada junto com as contagens quando uma nova amostra for gerada e deve
+considerar o tamanho das diferenças e as limitações do desenho observacional.
+:::
+:::
+
+::: {data-i18n="resultLimitations"}
+Os resultados medem evidência documental versionada. Eles não constituem
+auditoria jurídica nem permitem atribuir causalidade exclusiva à GDPR.
+:::
+
+## Reprodução {#reproducao}
+
+### Requisitos
+
+::: {data-i18n="requirementsList"}
+- R 4.6 ou superior;
+- `R6`, `jsonlite` e `yaml` para o pipeline;
+- `knitr`, `rmarkdown` e Quarto para renderizar este site;
+- executável `curl` disponível no PATH para novas chamadas à API do GitHub;
+- token `GITHUB_TOKEN` somente quando uma nova coleta for necessária.
+:::
+
+### Pipeline completo
+
+::: {data-i18n="completePipelineIntro"}
+Para executar todo o fluxo do zero — nova seleção, coletas, análise e site:
+:::
+
+```bash
+export GITHUB_TOKEN="seu-token"
+Rscript main.R --run
+```
+
+::: {data-i18n="newSampleIntro"}
+Para gerar uma nova amostra e coletar os dois snapshots históricos:
+:::
+
+```bash
+Rscript main.R --select
+```
+
+::: {data-i18n="analyzeIntro"}
+Depois de `--select` terminar, para executar a análise offline e gerar o site:
+:::
+
+```bash
+Rscript main.R --analyze
+```
+
+::: {data-i18n="statusText"}
+O `main.R` mostra o progresso por etapa e grava o estado em
+`{{output_root}}/metadata/run_status.json`. Durante a seleção, informa tópico, páginas
+e resultados; na seleção e na coleta, informa a contagem de repositórios
+aprovados ou processados em relação ao total, a cada 60 segundos e ao concluir.
+Quando um limite da API interrompe o avanço, informa que está aguardando a renovação.
+:::
+
+::: {data-i18n="stagedModeNote"}
+O modo `--analyze` exige a coleta completa da amostra atual, produzida por
+`--select` ou `--run`. O pipeline oferece apenas `--run`, `--select`,
+`--analyze` e `--help`.
+:::
+
+::: {data-i18n="helpIntro"}
+Para consultar a ajuda do pipeline:
+:::
+
+```bash
+Rscript main.R --help
+```
+
+### Artefatos
+
+::: {data-i18n="artifactsIntro"}
+O repositório mantém a amostra, o checkpoint bruto, o dataset final, as
+evidências positivas, as estatísticas, os gráficos e os relatórios. O arquivo
+`{{output_root}}/metadata/manifest.json` registra os hashes e versões usados na execução.
+:::
+
+## Referências metodológicas {#referencias-metodologicas}
+
+::: {data-i18n="referencesText"}
+Os {{topic_count}} termos pesquisados servem exclusivamente para descobrir repositórios do
+GitHub. Doze etiquetas são enumeradas por Openja et al. (2024);
+natural-language-processing é citado por Gonzalez, Zimmermann e Nagappan
+(2020); e as onze escolhas restantes do protocolo são nlp mais dez termos
+adicionais. O CSV distingue a origem histórica da escolha do apoio conceitual.
+Kumar (2024) apoia o conceito de LLMs; Vaswani et al. (2017), Transformers;
+Feuerriegel et al. (2024), IA generativa e multimodalidade; Ho et al. (2020),
+difusão; Lewis et al. (2020), RAG; e Wang et al. (2024), agentes. Essas fontes
+conceituais não forneceram a lista de busca.
+
+Gonzalez et al. (2020) é o estudo de Danielle Gonzalez, Thomas Zimmermann e
+Nachiappan Nagappan sobre repositórios do GitHub. É distinto do trabalho de
+Alexandra González et al. (2024) sobre repositórios do Hugging Face, que está
+fora do escopo e não fundamenta este protocolo. O artigo 99(2) do Regulamento
+(UE) 2016/679 estabelece a data de aplicação da GDPR; McNemar (1947), Wilcoxon
+(1945) e Efron (1979) fundamentam os métodos estatísticos efetivamente usados.
+Consulte a [bibliografia e proveniência metodológica](inputs/reference/literature_methods.md).
+:::
+
+<script src="site/site.js"></script>

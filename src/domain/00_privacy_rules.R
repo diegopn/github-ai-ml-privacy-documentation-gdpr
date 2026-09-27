@@ -1,14 +1,28 @@
-TEXT_EXTENSIONS <- c(
+PrivacyRuleSet <- R6::R6Class(
+  "PrivacyRuleSet",
+  public = list(
+    initialize = function(rules = NULL) {
+      private$extensions_data <- c(
   ".md", ".markdown", ".mdown", ".mkdn", ".rst", ".txt", ".adoc",
   ".asciidoc", ".html", ".htm", ".textile", ".xml", ".yaml", ".yml"
 )
-
-PRIVACY_MARKERS <- c(
+      private$markers_data <- c(
   "privacy", "security", "gdpr", "personal-data", "personal_data",
   "data-protection", "data_protection", "policy", "legal", "terms",
   "consent", "retention", "subprocessor", "compliance"
 )
-RULES <- list(
+      private$rule_data <- if (is.null(rules)) private$default_rules() else rules
+      if (!is.list(private$rule_data)) stop("As regras precisam ser uma lista nomeada.", call. = FALSE)
+    },
+    text_extensions = function() private$extensions_data,
+    privacy_markers = function() private$markers_data,
+    rules = function() private$rule_data
+  ),
+  private = list(
+    extensions_data = NULL,
+    markers_data = NULL,
+    rule_data = NULL,
+    default_rules = function() list(
   C1 = list(
     label = "dados pessoais",
     primary = c(
@@ -124,4 +138,7 @@ RULES <- list(
     )
   )
 )
-
+  ),
+  lock_class = TRUE,
+  cloneable = FALSE
+)

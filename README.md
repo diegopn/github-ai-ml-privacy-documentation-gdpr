@@ -39,7 +39,7 @@ index.qmd                    página Quarto na raiz
 
 ## Requisitos
 
-- R 4.5 ou superior;
+- R 4.6 ou superior;
 - Quarto;
 - `R6`, `jsonlite`, `yaml`, `knitr` e `rmarkdown`;
 - executável `curl` disponível no PATH para chamadas à API do GitHub.
@@ -49,6 +49,15 @@ No R:
 ```r
 install.packages(c("R6", "jsonlite", "yaml", "knitr", "rmarkdown"))
 ```
+
+Conforme a seção III-F do artigo, a análise preserva os dois testes exatos
+e bicaudais. Usa as funções nativas de `stats`: `binom.test()` nas contagens
+discordantes para o McNemar exato da RQ1, e `wilcox.test(exact = TRUE)` nas
+diferenças não nulas para o Wilcoxon da RQ2. O R 4.6 calcula o Wilcoxon exato
+também com empates, dispensando uma implementação própria. `mcnemar.test()`
+fornece a aproximação qui-quadrado, que não corresponde ao teste exato do
+protocolo. Os hashes usam `tools::sha256sum`. Todas essas chamadas permanecem
+encapsuladas nos métodos R6, sem dependências adicionais.
 
 O token da API deve ficar em `GITHUB_TOKEN` ou em um arquivo `.env` local:
 
@@ -89,6 +98,12 @@ Rscript main.R --analyze
 Se a seleção ou a coleta falhar, `--analyze` interrompe antes de produzir
 resultados com entradas incompletas ou desatualizadas. `--analyze` depende da
 execução bem-sucedida de `--select` ou `--run` para a amostra atual.
+A validação exige um registro por repositório, o mesmo hash de amostra e os
+mesmos cortes históricos configurados, além de commits, árvores e downloads
+completos. Ela não repara nem trunca o checkpoint. Árvores marcadas como
+truncadas ficam identificadas e seus pares são excluídos dos testes estatísticos.
+Os manifestos com fingerprint também impedem reutilizar uma seleção produzida
+com critérios diferentes dos atuais.
 
 O terminal identifica cada etapa. Na busca, informa o tópico e os resultados;
 na seleção e na coleta, mostra apenas a contagem de repositórios aprovados ou
@@ -109,7 +124,9 @@ novamente dentro do limite configurado. Se não for possível aguardar com
 segurança, a etapa falha sem trocar uma nova amostra pela anterior. Uma nova
 execução de `--select` começa do zero.
 
-As únicas opções do `main.R` são `--run`, `--select`, `--analyze` e `--help`.
+As opções operacionais são `--run`, `--select`, `--analyze` e `--help`.
+`--test` executa os contratos offline e `--prepare-site` prepara a apresentação
+dos artefatos locais para o Quarto.
 Sem opção, o programa executa o mesmo fluxo completo de `--run`. Não há modo de
 continuação: cada `--select` inicia uma seleção e coleta novas.
 
@@ -123,8 +140,27 @@ Os testes contratuais ficam separados do código operacional e não fazem
 chamadas à API. Quando quiser executá-los manualmente:
 
 ```bash
-Rscript tests/test_contracts.R
+Rscript main.R --test
 ```
+
+`main.R` é a única entrada procedural R, inclusive para testes e preparação do site.
+`tests/test_contracts.R` declara a classe da suíte; carregar esse arquivo não executa testes.
+As classes de produção são carregadas em um único ambiente isolado. A composição
+das dependências continua explícita em `ProjectBootstrap`. `SiteContentWriter`
+prepara o conteúdo e renderiza o site. As APIs de transporte são `request_json()`
+e `request_text()`; a reclassificação explícita usa `DatasetBuilder$reclassify()`.
+A leitura JSONL é estrita e nunca modifica o arquivo lido.
+Cada arquivo R de `src/` e `tests/` declara uma única classe. Os contratos exercitam
+as APIs públicas, incluindo uma comparação do Wilcoxon com enumeração exata em
+3.125 combinações de sinais, zeros e empates.
+O Quarto chama `main.R --prepare-site` antes de renderizar e usa as tabelas e
+estatísticas exportadas, sem recalcular a população de análise na página.
+A apresentação é editada em `site/index-template.md`; `SiteContentWriter` gera
+`index.qmd` com os valores locais. Esse arquivo gerado permanece versionado
+para que o Quarto também possa descobrir a página antes de executar o pre-render.
+Os links e o manifesto de resultados usam os caminhos configurados; a página
+confere o hash da amostra e rejeita estatísticas desatualizadas ou marcadores de
+template sem valor antes de substituir `index.qmd`.
 
 `main.R` é a única entrada operacional. Os caminhos padrão, o nível de
 significância, os critérios de seleção e os parâmetros de retry estão em
@@ -211,6 +247,11 @@ D1 indica evidência documental contextualizada. O PDE Score soma C1 a C7:
 dados pessoais, finalidade, base legal, direitos, retenção ou exclusão,
 compartilhamento e proteção. O resultado mede documentação versionada e não
 constitui auditoria jurídica.
+
+A seção III-E do artigo prevê revisão manual de todos os casos com D1=1,
+de uma amostra dos casos com D1=0 e dos critérios C1–C7. O pipeline exporta
+as classificações e evidências para essa conferência; executar os testes
+automáticos não comprova que a revisão manual foi realizada.
 
 ## Licença
 

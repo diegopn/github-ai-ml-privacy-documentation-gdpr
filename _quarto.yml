@@ -2,6 +2,8 @@ project:
   type: website
   output-dir: _site
   execute-dir: project
+  pre-render:
+    - Rscript main.R --prepare-site
   render:
     - index.qmd
 
