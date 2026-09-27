@@ -7,8 +7,12 @@ Este projeto executa a coleta, a classificação textual e a análise estatísti
 ## Entrada e desenho
 
 - CSV de entrada: `inputs/final/selected_repositories.csv`.
-- SHA-256 do CSV: `3cf72db95b71dcd32a1e87d6b5c2b9c46aa13dd705ef7267ae773ce0b01623bf`.
-- Linhas da amostra: **474**.
+- SHA-256 do CSV: `30540b1c1bcd94f5b9afc0a77f92a103e83c7388aa09907a99e786e7ffc32a11`.
+- Repositórios inicialmente selecionados: **474**.
+- Repositórios excluídos por ausência de par histórico completo válido para análise: **1**.
+- Repositórios excluídos: `JohnSnowLabs/spark-nlp`.
+- A amostra final analisada corresponde aos pares históricos completos efetivamente usados na análise estatística.
+- A seleção inicial e todas as linhas classificadas são preservadas em `sample_used.csv` e `final_privacy_gdpr_dataset.csv` para rastreabilidade.
 - Protocolos de coleta presentes no checkpoint: `open-source-no-size-limit-expanded-topics-2026-09`.
 - Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.
 - Versão pré-GDPR: último commit até `2018-05-24T23:59:59Z`.
@@ -28,9 +32,12 @@ D1 indica presença de evidência documental contextualizada. O PDE Score soma C
 
 ## Resultados
 
+- Repositórios na amostra final analisada: **473**.
+
+Todos os indicadores, proporções, médias, frequências, tabelas e gráficos usam esta mesma amostra final analisada.
+
 - D1 pré: **3/473** (0.6%).
 - D1 pós: **27/473** (5.7%).
-- Pares completos: **473**.
 - Score médio pré/pós: **0.011 / 0.127**.
 - McNemar exato bicaudal: **p=8.05e-07**.
 - Wilcoxon exato bicaudal: **p=2.38e-07**.
@@ -44,4 +51,4 @@ Documentos externos ao repositório, práticas não versionadas e textos que nã
 A coleta grava um checkpoint JSONL em `inputs/raw/repository_results.jsonl`. A análise pode ser repetida sem acesso à API usando o mesmo CSV e esse checkpoint. O dataset, as estatísticas e os relatórios são derivados desses arquivos.
 
 Versão das regras: `semantic-conservative-2026-09-c1-c4-r2`.
-Linhas no dataset final: **474**.
+Repositórios no dataset da amostra final analisada: **473**.

@@ -14,12 +14,22 @@ ReportWriter <- R6::R6Class(
     },
 
     write_all = function(paths, stats, sample, source_hash, dataset, input_path, raw_path) {
+      # Use the population already selected by PairedStatistics; do not reapply inclusion rules.
+      analyzed_sample <- sample[!sample$repository %in% unlist(stats$incomplete_repositories), , drop = FALSE]
+      analyzed_dataset <- dataset[match(analyzed_sample$repository, dataset$repository), , drop = FALSE]
+      if (nrow(analyzed_sample) != stats$complete_pairs ||
+        !identical(as.character(analyzed_dataset$repository), as.character(analyzed_sample$repository))) {
+        stop("A amostra final analisada não corresponde ao resultado estatístico.", call. = FALSE)
+      }
       for (directory in paths[-1L]) dir.create(directory, recursive = TRUE, showWarnings = FALSE)
+      private$store$write_csv(analyzed_sample, file.path(paths$tables, "analyzed_sample.csv"))
+      private$store$write_csv(analyzed_dataset, file.path(paths$tables, "analyzed_dataset.csv"))
+      # Retain the complete input and classified rows as traceability artifacts.
       private$store$write_csv(sample, file.path(paths$tables, "sample_used.csv"))
       private$store$write_lines(c(paste0("sha256  ", source_hash), paste0("source  ", private$config$relative(input_path)),
           paste0("rows  ", nrow(sample))), file.path(paths$metadata, "sample_used.sha256.txt"))
       private$store$write_csv(dataset, file.path(paths$tables, "final_privacy_gdpr_dataset.csv"))
-      private$store$write_csv(private$positive_evidence_table(dataset, stats$incomplete_repositories), file.path(paths$tables,
+      private$store$write_csv(private$positive_evidence_table(analyzed_dataset, stats$incomplete_repositories), file.path(paths$tables,
           "positive_evidence.csv"))
       private$write_derived_outputs(paths, stats)
       private$store$write_json(stats, file.path(paths$metadata, "statistics.json"), pretty = TRUE)
@@ -66,10 +76,11 @@ ReportWriter <- R6::R6Class(
       r1 <- stats$rq1_mcnemar
       r2 <- stats$rq2_wilcoxon
       w <- r2$wilcoxon_signed_rank_exact
-      lines <- c("# Resultados estatísticos", "", "## População", "", sprintf("- Linhas de entrada: **%d**.",
-          stats$total_input_rows), sprintf("- Repositórios com licença SPDX/OSI aprovada: **%d**.",
-          stats$open_source_repositories), sprintf("- Pares completos: **%d**.", stats$complete_pairs),
-          sprintf("- Pares incompletos preservados e excluídos dos testes: **%d**.", stats$incomplete_pairs),
+      lines <- c("# Resultados estatísticos", "", "## Amostra final analisada", "",
+          sprintf("- Repositórios na amostra final analisada: **%d**.", stats$complete_pairs), "",
+          "Todos os indicadores, proporções, médias, frequências, tabelas e gráficos usam esta mesma amostra final analisada.",
+          "", "## Metodologia e rastreabilidade", "",
+          private$population_traceability(stats),
           sprintf("- Pré: último commit até `%s`.", stats$pre_until), sprintf("- Pós: último commit até `%s`.",
               stats$post_until), sprintf("- Nível de significância: **α = %.3f**.", stats$significance_level),
           "", "## RQ1: McNemar exato bicaudal para D1", "", "| Medida | Resultado |", "|---|---:|",
@@ -111,8 +122,7 @@ ReportWriter <- R6::R6Class(
             "A classificação final usa regras semânticas conservadoras."
           ),
           "", "## Entrada e desenho", "", sprintf("- CSV de entrada: `%s`.", private$config$relative(input_path)),
-          sprintf("- SHA-256 do CSV: `%s`.", source_hash), sprintf("- Linhas da amostra: **%d**.",
-              nrow(sample)), sprintf("- Protocolos de coleta presentes no checkpoint: `%s`.",
+          sprintf("- SHA-256 do CSV: `%s`.", source_hash), private$population_traceability(stats), sprintf("- Protocolos de coleta presentes no checkpoint: `%s`.",
               paste(stats$source_collector_protocol_versions, collapse = "`, `")), "- Critério de licença: **SPDX/OSI aprovada para todos os repositórios**.",
           sprintf("- Versão pré-GDPR: último commit até `%s`.", stats$pre_until), sprintf("- Versão pós-GDPR: último commit até `%s`.",
               stats$post_until), sprintf("- Tópicos de descoberta usados (%d): `%s`.", length(selection_topics),
@@ -135,10 +145,12 @@ ReportWriter <- R6::R6Class(
             "Um valor zero significa ausência de evidência suficiente nos documentos recuperados,",
             "não ausência comprovada de práticas de privacidade."
           ),
-          "", "## Resultados", "", sprintf("- D1 pré: **%d/%d** (%s).", r1$pre_ones, stats$complete_pairs,
+          "", "## Resultados", "",
+          sprintf("- Repositórios na amostra final analisada: **%d**.", stats$complete_pairs), "",
+          "Todos os indicadores, proporções, médias, frequências, tabelas e gráficos usam esta mesma amostra final analisada.", "",
+          sprintf("- D1 pré: **%d/%d** (%s).", r1$pre_ones, stats$complete_pairs,
               private$fmt_pct(r1$pre_proportion)), sprintf("- D1 pós: **%d/%d** (%s).", r1$post_ones,
-              stats$complete_pairs, private$fmt_pct(r1$post_proportion)), sprintf("- Pares completos: **%d**.",
-              stats$complete_pairs), sprintf("- Score médio pré/pós: **%s / %s**.", private$fmt_num(r2$pre_mean),
+              stats$complete_pairs, private$fmt_pct(r1$post_proportion)), sprintf("- Score médio pré/pós: **%s / %s**.", private$fmt_num(r2$pre_mean),
               private$fmt_num(r2$post_mean)), sprintf("- McNemar exato bicaudal: **p=%s**.",
               private$fmt_p(r1$exact_mcnemar_p_two_sided)), sprintf("- Wilcoxon exato bicaudal: **p=%s**.",
               private$fmt_p(r2$wilcoxon_signed_rank_exact$p_two_sided_exact)), "", "## Limitações",
@@ -153,9 +165,20 @@ ReportWriter <- R6::R6Class(
             "O dataset, as estatísticas e os relatórios são derivados desses arquivos."
           ),
               private$config$relative(raw_path)), "", sprintf("Versão das regras: `%s`.",
-              stats$classification_rule_version), sprintf("Linhas no dataset final: **%d**.",
-              nrow(dataset)))
+              stats$classification_rule_version), sprintf("Repositórios no dataset da amostra final analisada: **%d**.",
+              stats$complete_pairs))
       enc2utf8(lines)
+    },
+
+    population_traceability = function(stats) {
+      excluded <- as.character(unlist(stats$incomplete_repositories, use.names = FALSE))
+      c(
+        sprintf("- Repositórios inicialmente selecionados: **%d**.", stats$total_input_rows),
+        sprintf("- Repositórios excluídos por ausência de par histórico completo válido para análise: **%d**.", stats$incomplete_pairs),
+        if (length(excluded)) sprintf("- Repositórios excluídos: `%s`.", paste(excluded, collapse = "`, `")),
+        "- A amostra final analisada corresponde aos pares históricos completos efetivamente usados na análise estatística.",
+        "- A seleção inicial e todas as linhas classificadas são preservadas em `sample_used.csv` e `final_privacy_gdpr_dataset.csv` para rastreabilidade."
+      )
     },
 
     manifest = function(stats, input_path, raw_path, paths) {
@@ -164,6 +187,8 @@ ReportWriter <- R6::R6Class(
           "name", "privacy-documentation-experiment")), input_csv = private$config$relative(input_path),
           input_sha256 = stats$source_sha256, input_rows = stats$total_input_rows, dataset_rows = stats$total_input_rows,
           complete_pairs = stats$complete_pairs, incomplete_pairs = stats$incomplete_pairs,
+          analyzed_sample_rows = stats$complete_pairs, analyzed_dataset_rows = stats$complete_pairs,
+          incomplete_repositories = stats$incomplete_repositories,
           significance_level = stats$significance_level, classification_rule_version = stats$classification_rule_version,
           collector_protocol_version = stats$collector_protocol_version, source_collector_protocol_versions = stats$source_collector_protocol_versions,
           wilcoxon_method = "exact-two-sided-average-ranks-zero-differences-excluded", sample_requires_osi_approved_license = TRUE,
@@ -177,7 +202,7 @@ ReportWriter <- R6::R6Class(
 
     artifact_files = function(paths) {
       files <- list(
-        tables = c("sample_used.csv", "final_privacy_gdpr_dataset.csv", "positive_evidence.csv",
+        tables = c("sample_used.csv", "final_privacy_gdpr_dataset.csv", "analyzed_sample.csv", "analyzed_dataset.csv", "positive_evidence.csv",
           "statistics_r.csv", "criterion_frequencies.csv", "d1_transition_table.csv"),
         figures = c("d1_pre_post.png", "criteria_post_gdpr.png"),
         metadata = c("statistics.json", "sample_used.sha256.txt", "session_info.txt", "manifest.json"),
@@ -236,11 +261,11 @@ ReportWriter <- R6::R6Class(
       r1 <- stats$rq1_mcnemar
       r2 <- stats$rq2_wilcoxon
       w <- r2$wilcoxon_signed_rank_exact
-      summary <- data.frame(indicador = c("linhas_lidas", "pares_completos_D1", "pares_completos_score",
+      summary <- data.frame(indicador = c("repositorios_na_amostra_final_analisada",
           "D1_pre", "D1_pos", "pre_1_pos_0", "pre_0_pos_1", "p_McNemar_exato_bicaudal", "media_score_pre",
           "media_score_pos", "diferenca_media_score", "aumentos_score", "reducoes_score", "empates_score",
           "diferencas_nao_nulas", "W_mais", "W_menos", "p_Wilcoxon_exato_bicaudal", "correlacao_bisserial"),
-          valor = c(stats$total_input_rows, stats$complete_pairs, stats$complete_pairs, r1$pre_ones,
+          valor = c(stats$complete_pairs, r1$pre_ones,
               r1$post_ones, r1$pre1_post0_b, r1$pre0_post1_c, r1$exact_mcnemar_p_two_sided,
               r2$pre_mean, r2$post_mean, r2$difference_mean, r2$increased, r2$decreased, r2$unchanged,
               w$n_nonzero, w$w_plus, w$w_minus, w$p_two_sided_exact, w$rank_biserial), stringsAsFactors = FALSE)

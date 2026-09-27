@@ -442,7 +442,7 @@ main.content p {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 28px 0 12px;
   border-top: 2px solid var(--ink);
   border-bottom: 1px solid var(--line);

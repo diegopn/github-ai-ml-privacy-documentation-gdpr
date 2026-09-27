@@ -31,8 +31,12 @@ SiteContentWriter <- R6::R6Class(
       audit_available <- file.exists(private$store$audit_path())
       private$assert_current_results(stats, sample)
       if (audit_available) private$store$assert_published_sample()
-      values <- c(private$metric_values(stats, sample, topics, audit_available),
-        private$table_values(paths, sample), private$manifest_values(audit_available), private$configuration_values(stats))
+      analyzed_sample <- sample[!sample$repository %in% unlist(stats$incomplete_repositories), , drop = FALSE]
+      if (nrow(analyzed_sample) != stats$complete_pairs) {
+        stop("A amostra final analisada não corresponde ao resultado estatístico.", call. = FALSE)
+      }
+      values <- c(private$metric_values(stats, topics, audit_available),
+        private$table_values(paths, analyzed_sample), private$manifest_values(audit_available), private$configuration_values(stats))
       template <- readLines(file.path(private$config$root(), "site", "index-template.md"), warn = FALSE)
       for (name in names(values)) {
         template <- gsub(paste0("{{", name, "}}"), as.character(values[[name]]), template, fixed = TRUE)
@@ -83,12 +87,13 @@ SiteContentWriter <- R6::R6Class(
       formatC(value, format = "f", digits = 6L, decimal.mark = ",", big.mark = ".")
     },
     format_score = function(value) formatC(as.numeric(value), format = "f", digits = 3L, decimal.mark = ","),
-    metric_values = function(stats, sample, topics, audit_available) {
+    metric_values = function(stats, topics, audit_available) {
       r1 <- stats$rq1_mcnemar
       r2 <- stats$rq2_wilcoxon
       w <- r2$wilcoxon_signed_rank_exact
       site_data <- list(
-        topic_count = length(topics), sample_rows = nrow(sample), complete_pairs = as.integer(stats$complete_pairs),
+        topic_count = length(topics), complete_pairs = as.integer(stats$complete_pairs),
+        selected_repositories = as.integer(stats$total_input_rows), excluded_repositories = as.integer(stats$incomplete_pairs),
         pre_d1 = as.integer(r1$pre_ones), post_d1 = as.integer(r1$post_ones),
         pre_score = as.numeric(r2$pre_mean), post_score = as.numeric(r2$post_mean),
         mcnemar_p = as.numeric(r1$exact_mcnemar_p_two_sided), wilcoxon_p = as.numeric(w$p_two_sided_exact),
@@ -97,8 +102,9 @@ SiteContentWriter <- R6::R6Class(
       c(list(
         site_data = paste0("<script>window.privacySiteData=",
           jsonlite::toJSON(site_data, auto_unbox = TRUE, digits = 16), ";</script>"),
-        total = as.integer(stats$total_input_rows), complete_pairs = stats$complete_pairs,
-        pre_d1 = r1$pre_ones, post_d1 = r1$post_ones, sample_rows = nrow(sample), topic_count = length(topics),
+        complete_pairs = stats$complete_pairs,
+        selected_repositories = stats$total_input_rows, excluded_repositories = stats$incomplete_pairs,
+        pre_d1 = r1$pre_ones, post_d1 = r1$post_ones, topic_count = length(topics),
         pre_proportion = sprintf("%.1f%%", as.numeric(r1$pre_proportion) * 100),
         post_proportion = sprintf("%.1f%%", as.numeric(r1$post_proportion) * 100),
         losses = r1$pre1_post0_b, gains = r1$pre0_post1_c,
@@ -127,7 +133,7 @@ SiteContentWriter <- R6::R6Class(
       names(transition) <- c("Pós = 0", "Pós = 1")
       rownames(transition) <- c("Pré = 0", "Pré = 1")
       list(
-        topic_table = private$html_table(topic_table, "Tópicos presentes na amostra congelada"),
+        topic_table = private$html_table(topic_table, "Tópicos presentes na amostra final analisada"),
         criteria_table = private$html_table(criteria, "Frequência de C1 a C7"),
         transition_table = private$html_table(transition, "Matriz de transição de D1")
       )

@@ -24,14 +24,22 @@ ReportWriterContract <- R6::R6Class(
       transition <- utils::read.csv(file.path(report_root, "tables", "d1_transition_table.csv"),
         row.names = 1L, check.names = FALSE)
       report <- readLines(file.path(report_root, "reports", "privacy_documentation_experiment_gdpr.md"), warn = FALSE)
-      context$check("ReportWriter exporta dataset, evidências e estatísticas da fixture",
-        nrow(dataset) == 5L && nrow(evidence) == 8L && all(nzchar(evidence$evidence)) &&
+      analyzed <- utils::read.csv(file.path(paths$tables, "analyzed_dataset.csv"), stringsAsFactors = FALSE)
+      analyzed_sample <- utils::read.csv(file.path(paths$tables, "analyzed_sample.csv"), stringsAsFactors = FALSE)
+      initial_sample <- utils::read.csv(file.path(paths$tables, "sample_used.csv"))
+      summary <- utils::read.csv(file.path(paths$tables, "statistics_r.csv"))
+      context$check("ReportWriter preserva a rastreabilidade e exporta somente a amostra final nos resultados",
+        nrow(dataset) == 5L && nrow(initial_sample) == 5L && nrow(analyzed) == 4L &&
+          identical(analyzed_sample$repository, analyzed$repository) &&
+          !any(analyzed$repository %in% fixture$stats$incomplete_repositories) &&
+          nrow(evidence) == 6L && all(nzchar(evidence$evidence)) &&
           statistics$complete_pairs == 4L && sum(as.matrix(transition)) == 4L &&
-          all(!evidence$included_in_paired_analysis[evidence$repository == "owner/repository-1" & evidence$period == "pre"]) &&
-          all(evidence$included_in_paired_analysis[evidence$repository != "owner/repository-1"]) &&
+          all(evidence$repository %in% analyzed$repository) && all(evidence$included_in_paired_analysis) &&
+          identical(summary$indicador[[1L]], "repositorios_na_amostra_final_analisada") &&
+          summary$valor[[1L]] == statistics$complete_pairs && !"linhas_lidas" %in% summary$indicador &&
           file.exists(file.path(report_root, "metadata", "manifest.json")))
       context$check("relatórios e gráficos descrevem os mesmos resultados calculados",
-        any(grepl("Pares completos: **4**", report, fixed = TRUE)) &&
+        any(grepl("Repositórios na amostra final analisada: **4**", report, fixed = TRUE)) &&
           file.info(file.path(report_root, "figures", "d1_pre_post.png"))$size > 0 &&
           file.info(file.path(report_root, "figures", "criteria_post_gdpr.png"))$size > 0)
       manifest <- jsonlite::fromJSON(file.path(paths$metadata, "manifest.json"))

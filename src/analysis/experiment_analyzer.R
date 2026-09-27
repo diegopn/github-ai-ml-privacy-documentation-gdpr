@@ -35,11 +35,11 @@ ExperimentAnalyzer <- R6::R6Class(
       rq2 <- stats$rq2_wilcoxon
       cat(sprintf(
         paste0("\nResultados finais\n",
-          "Repositórios analisados: %d | pares completos: %d\n",
+          "Repositórios na amostra final analisada: %d\n",
           "D1 = 1: %d/%d (%.2f%%) → %d/%d (%.2f%%)\n",
           "Diferença D1: %+.2f p.p. | McNemar exato: p = %.6g\n",
           "Score médio (0–7): %.3f → %.3f | Wilcoxon exato: p = %.6g\n"),
-        nrow(sample), stats$complete_pairs, rq1$pre_ones, rq1$n_complete_pairs,
+        stats$complete_pairs, rq1$pre_ones, rq1$n_complete_pairs,
         100 * rq1$pre_proportion, rq1$post_ones, rq1$n_complete_pairs,
         100 * rq1$post_proportion, 100 * rq1$paired_proportion_difference_post_minus_pre,
         rq1$exact_mcnemar_p_two_sided, rq2$pre_mean, rq2$post_mean,

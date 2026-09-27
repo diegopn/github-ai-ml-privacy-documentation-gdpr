@@ -349,9 +349,9 @@
   ],
   "unique_candidates": 1615,
   "selected_repositories": 474,
-  "generated_at": "2026-09-27T01:14:20Z",
-  "selection_run_id": "20260927T011420-254582",
+  "generated_at": "2026-09-27T14:27:18Z",
+  "selection_run_id": "20260927T142718-30112",
   "configuration_fingerprint": "8b61afc5e3a11c542d9ad69508a1b627e7c6f16a83d5394ddbf186d740c54c02",
-  "sample_sha256": "3cf72db95b71dcd32a1e87d6b5c2b9c46aa13dd705ef7267ae773ce0b01623bf",
+  "sample_sha256": "30540b1c1bcd94f5b9afc0a77f92a103e83c7388aa09907a99e786e7ffc32a11",
   "sample_rows": 474
 }

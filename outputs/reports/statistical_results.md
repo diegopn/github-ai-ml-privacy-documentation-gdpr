@@ -1,11 +1,18 @@
 # Resultados estatísticos
 
-## População
+## Amostra final analisada
 
-- Linhas de entrada: **474**.
-- Repositórios com licença SPDX/OSI aprovada: **474**.
-- Pares completos: **473**.
-- Pares incompletos preservados e excluídos dos testes: **1**.
+- Repositórios na amostra final analisada: **473**.
+
+Todos os indicadores, proporções, médias, frequências, tabelas e gráficos usam esta mesma amostra final analisada.
+
+## Metodologia e rastreabilidade
+
+- Repositórios inicialmente selecionados: **474**.
+- Repositórios excluídos por ausência de par histórico completo válido para análise: **1**.
+- Repositórios excluídos: `JohnSnowLabs/spark-nlp`.
+- A amostra final analisada corresponde aos pares históricos completos efetivamente usados na análise estatística.
+- A seleção inicial e todas as linhas classificadas são preservadas em `sample_used.csv` e `final_privacy_gdpr_dataset.csv` para rastreabilidade.
 - Pré: último commit até `2018-05-24T23:59:59Z`.
 - Pós: último commit até `2026-06-30T23:59:59Z`.
 - Nível de significância: **α = 0.050**.

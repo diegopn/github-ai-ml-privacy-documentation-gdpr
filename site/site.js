@@ -81,7 +81,8 @@
     const d = data();
     const values = {
       topics: formatNumber(d.topic_count, 0, language),
-      repositories: formatNumber(d.sample_rows, 0, language),
+      selected: formatNumber(d.selected_repositories, 0, language),
+      excluded: formatNumber(d.excluded_repositories, 0, language),
       preD1: formatNumber(d.pre_d1, 0, language),
       postD1: formatNumber(d.post_d1, 0, language),
       pairs: formatNumber(d.complete_pairs, 0, language),
@@ -126,7 +127,7 @@
     setText("#reproducao h2", copy.reproduction, false);
     setText("#referencias-metodologicas h2", copy.methodologicalReferences, false);
 
-    const metricLabels = [copy.sampleRepositories, copy.completePairs, copy.postD1, copy.postScore];
+    const metricLabels = [copy.finalAnalyzedRepositories, copy.postD1, copy.postScore];
     document.querySelectorAll("#visao-geral .metric-card p").forEach((element, index) => {
       if (metricLabels[index]) element.textContent = metricLabels[index];
     });
@@ -136,8 +137,8 @@
       "#resultados h3:nth-of-type(2)": copy.pdeScore,
       "#resultados h3:nth-of-type(3)": copy.criteriaFrequency,
       "#resultados h3:nth-of-type(4)": copy.transitions,
-      "#dados h3:nth-of-type(1)": copy.sample,
-      "#dados h3:nth-of-type(2)": copy.inspectionFiles,
+      "#amostra-final-analisada > h3": copy.sample,
+      "#arquivos-para-inspeção > h3": copy.inspectionFiles,
       "#metodologia h3:nth-of-type(1)": copy.design,
       "#metodologia h3:nth-of-type(2)": copy.sampleSelection,
       "#metodologia h3:nth-of-type(3)": copy.documentationCriteria,

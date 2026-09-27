@@ -1,12 +1,15 @@
 {
-  "generated_at": "2026-09-27T01:43:48Z",
+  "generated_at": "2026-09-27T14:59:02Z",
   "project_name": "github-ai-ml-privacy-documentation-gdpr",
   "input_csv": "inputs/final/selected_repositories.csv",
-  "input_sha256": "3cf72db95b71dcd32a1e87d6b5c2b9c46aa13dd705ef7267ae773ce0b01623bf",
+  "input_sha256": "30540b1c1bcd94f5b9afc0a77f92a103e83c7388aa09907a99e786e7ffc32a11",
   "input_rows": 474,
   "dataset_rows": 474,
   "complete_pairs": 473,
   "incomplete_pairs": 1,
+  "analyzed_sample_rows": 473,
+  "analyzed_dataset_rows": 473,
+  "incomplete_repositories": "JohnSnowLabs/spark-nlp",
   "significance_level": 0.050000000000000003,
   "classification_rule_version": "semantic-conservative-2026-09-c1-c4-r2",
   "collector_protocol_version": "open-source-no-size-limit-expanded-topics-2026-09",
@@ -15,5 +18,5 @@
   "sample_requires_osi_approved_license": true,
   "selection_topics": ["artificial-intelligence", "deep-learning", "machine-learning", "deep-neural-network", "reinforcement-learning", "computer-vision", "image-processing", "neural-network", "image-classification", "convolutional-neural-networks", "object-detection", "machine-intelligence", "natural-language-processing", "nlp", "large-language-model", "large-language-models", "llm", "transformer", "transformers", "generative-ai", "diffusion", "multimodal", "retrieval-augmented-generation", "ai-agents"],
   "selection_audit": "outputs/metadata/selection_search_manifest.json",
-  "files": ["inputs/final/selected_repositories.csv", "inputs/raw/repository_results.jsonl", "outputs/tables/sample_used.csv", "outputs/tables/final_privacy_gdpr_dataset.csv", "outputs/tables/positive_evidence.csv", "outputs/tables/statistics_r.csv", "outputs/tables/criterion_frequencies.csv", "outputs/tables/d1_transition_table.csv", "outputs/figures/d1_pre_post.png", "outputs/figures/criteria_post_gdpr.png", "outputs/metadata/statistics.json", "outputs/metadata/sample_used.sha256.txt", "outputs/metadata/session_info.txt", "outputs/metadata/manifest.json", "outputs/reports/statistical_results.md", "outputs/reports/privacy_documentation_experiment_gdpr.md", "outputs/metadata/selection_search_manifest.json"]
+  "files": ["inputs/final/selected_repositories.csv", "inputs/raw/repository_results.jsonl", "outputs/tables/sample_used.csv", "outputs/tables/final_privacy_gdpr_dataset.csv", "outputs/tables/analyzed_sample.csv", "outputs/tables/analyzed_dataset.csv", "outputs/tables/positive_evidence.csv", "outputs/tables/statistics_r.csv", "outputs/tables/criterion_frequencies.csv", "outputs/tables/d1_transition_table.csv", "outputs/figures/d1_pre_post.png", "outputs/figures/criteria_post_gdpr.png", "outputs/metadata/statistics.json", "outputs/metadata/sample_used.sha256.txt", "outputs/metadata/session_info.txt", "outputs/metadata/manifest.json", "outputs/reports/statistical_results.md", "outputs/reports/privacy_documentation_experiment_gdpr.md", "outputs/metadata/selection_search_manifest.json"]
 }

@@ -6,7 +6,7 @@ subtitle: "Projetos open source de IA/ML identificados por busca temática"
 {{site_data}}
 
 ::: {.hero-note #hero-note}
-Esta página reúne a amostra, os documentos recuperados, as evidências
+Esta página reúne a amostra final analisada, os documentos recuperados, as evidências
 textuais, a metodologia, os resultados estatísticos e as instruções de
 reprodução. Os valores exibidos são gerados diretamente dos artefatos
 versionados no repositório.
@@ -16,13 +16,8 @@ versionados no repositório.
 
 ::: {.metric-grid}
 ::: {.metric-card}
-### {{total}}
-Repositórios na amostra
-:::
-
-::: {.metric-card}
 ### {{complete_pairs}}
-Pares históricos completos
+Repositórios na amostra final analisada
 :::
 
 ::: {.metric-card}
@@ -39,8 +34,8 @@ PDE Score médio pós-GDPR
 ## Resultado principal {#resultado-principal}
 
 ::: {data-i18n-template="main-result"}
-No período pré-GDPR, {{pre_d1}} de {{complete_pairs}} repositórios
-apresentaram evidência documental de privacidade (D1=1). No período pós-GDPR,
+Na amostra final analisada, {{pre_d1}} de {{complete_pairs}} repositórios
+apresentaram, no período pré-GDPR, evidência documental de privacidade (D1=1). No período pós-GDPR,
 foram {{post_d1}} repositórios. O teste exato de McNemar bicaudal resultou em
 {{mcnemar_p}}.
 :::
@@ -103,16 +98,18 @@ não como prova automática de escopo técnico.
 
 ## Dados coletados {#dados}
 
-### Amostra
+### Amostra final analisada
 
 ::: {data-i18n-template="sample-description"}
-A amostra contém {{sample_rows}} repositórios com licença identificada por
-SPDX e aprovada pela OSI.
+A amostra final analisada contém {{complete_pairs}} repositórios com licença identificada por
+SPDX e aprovada pela OSI. Ela corresponde aos pares históricos completos efetivamente
+usados na análise estatística. Todos os indicadores, proporções, médias, frequências,
+tabelas e gráficos de resultados usam este mesmo conjunto.
 :::
 
 ::: {data-i18n="sampleFilesText"}
-O arquivo usado pelo pipeline está disponível em
-[selected_repositories.csv]({{sample_path}}). O
+A amostra final analisada está disponível em
+[analyzed_sample.csv]({{output_root}}/tables/analyzed_sample.csv). O
 vocabulário configurado está em
 [ai_ml_topics_used.csv](inputs/reference/ai_ml_topics_used.csv).
 :::
@@ -120,16 +117,15 @@ vocabulário configurado está em
 ### Arquivos para inspeção
 
 ::: {data-i18n="inspectionIntro"}
-Os registros detalhados não são repetidos na página. A relação completa dos
-repositórios, documentos, classificações, evidências e metadados permanece
-disponível nos arquivos versionados abaixo:
+Os registros detalhados não são repetidos na página. Os repositórios da amostra final
+analisada, seus documentos, classificações, evidências e metadados permanecem
+disponíveis nos arquivos versionados abaixo:
 :::
 
 ::: {data-i18n="dataLinksList"}
-- [Dataset final completo]({{output_root}}/tables/final_privacy_gdpr_dataset.csv)
-- [Amostra utilizada]({{output_root}}/tables/sample_used.csv)
+- [Dataset da amostra final analisada]({{output_root}}/tables/analyzed_dataset.csv)
+- [Amostra final analisada]({{output_root}}/tables/analyzed_sample.csv)
 - [Evidências positivas]({{output_root}}/tables/positive_evidence.csv)
-- [Checkpoint bruto JSONL]({{raw_path}})
 - [Manifesto da execução]({{output_root}}/metadata/manifest.json)
 :::
 ::: {data-i18n-template="selection-manifest"}
@@ -156,11 +152,28 @@ flowchart TD
   D --> F[Snapshot pós-GDPR]
   E --> G[Classificação C1-C7 e D1]
   F --> G
-  G --> H[McNemar e Wilcoxon]
+  G --> J[Amostra final analisada: pares históricos completos]
+  J --> H[McNemar e Wilcoxon]
   H --> I[Dataset, relatórios e site]
 ```
 
 ### Seleção da amostra
+
+::: {data-i18n-template="sample-flow"}
+Repositórios inicialmente selecionados: {{selected_repositories}}.
+Repositórios excluídos por ausência de par histórico completo válido para análise: {{excluded_repositories}}.
+Repositórios na amostra final analisada: {{complete_pairs}}.
+Os critérios de inclusão e os métodos estatísticos permanecem os mesmos.
+:::
+
+::: {data-i18n="traceabilityLinks"}
+A seleção inicial, os registros completos e as exclusões são preservados para rastreabilidade:
+
+- [Seleção inicial desta execução]({{output_root}}/tables/sample_used.csv)
+- [Dataset completo para rastreabilidade]({{output_root}}/tables/final_privacy_gdpr_dataset.csv)
+- [Checkpoint bruto JSONL]({{raw_path}})
+- [Contagens e repositórios excluídos]({{output_root}}/metadata/statistics.json)
+:::
 
 ::: {data-i18n-template="selection-description"}
 O seletor consulta {{topic_count}} tópicos configurados em
@@ -235,7 +248,7 @@ H0 em uma verdade automática.
 ::: {data-i18n-template="pvalue-result"}
 Neste estudo, o *p-value* exato de McNemar foi {{mcnemar_p}}
 e o de Wilcoxon foi {{wilcoxon_p}}. A decisão estatística deve
-ser atualizada junto com as contagens quando uma nova amostra for gerada e deve
+acompanhar os resultados da amostra final analisada em cada execução e deve
 considerar o tamanho das diferenças e as limitações do desenho observacional.
 :::
 :::
@@ -309,7 +322,7 @@ Rscript main.R --help
 ### Artefatos
 
 ::: {data-i18n="artifactsIntro"}
-O repositório mantém a amostra, o checkpoint bruto, o dataset final, as
+O repositório mantém a amostra final analisada, os registros de rastreabilidade, o checkpoint bruto, o dataset, as
 evidências positivas, as estatísticas, os gráficos e os relatórios. O arquivo
 `{{output_root}}/metadata/manifest.json` registra os hashes e versões usados na execução.
 :::
