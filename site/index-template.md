@@ -31,6 +31,20 @@ PDE Score médio pós-GDPR
 :::
 :::
 
+## Perguntas e hipóteses {#perguntas-hipoteses}
+
+**RQ1 — Presença (D1):** A proporção de repositórios com documentação de privacidade aumentou no período pós-GDPR?
+
+- **Hipótese nula (H0₁):** não há diferença nessa proporção entre os períodos.
+- **Hipótese alternativa (H1₁):** há diferença nessa proporção entre os períodos.
+
+**RQ2 — Abrangência (PDE Score):** A documentação passou a abordar mais critérios de privacidade no período pós-GDPR?
+
+- **Hipótese nula (H0₂):** não há diferença no PDE Score entre os períodos.
+- **Hipótese alternativa (H1₂):** há diferença no PDE Score entre os períodos.
+
+Os testes são bicaudais: consideram tanto aumento quanto redução.
+
 ## Resultado principal {#resultado-principal}
 
 ::: {data-i18n-template="main-result"}
