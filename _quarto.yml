@@ -22,6 +22,8 @@ website:
     left:
       - href: "#title-block-header"
         text: Início
+      - href: index.qmd#perguntas-hipoteses
+        text: Perguntas e hipóteses
       - href: index.qmd#resultados
         text: Resultados
       - href: index.qmd#dados
