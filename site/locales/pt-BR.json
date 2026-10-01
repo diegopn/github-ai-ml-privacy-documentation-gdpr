@@ -68,6 +68,8 @@
   "criteriaCaption": "Frequência de C1 a C7",
   "transitionCaption": "Matriz de transição de D1",
   "toc": "Nesta página",
+  "researchQuestions": "Perguntas e hipóteses",
+  "researchQuestionsBody": "<p><strong>RQ1 — Presença (D1):</strong> A proporção de repositórios com documentação de privacidade aumentou no período pós-GDPR?</p><ul><li><strong>Hipótese nula (H0₁):</strong> não há diferença nessa proporção entre os períodos.</li><li><strong>Hipótese alternativa (H1₁):</strong> há diferença nessa proporção entre os períodos.</li></ul><p><strong>RQ2 — Abrangência (PDE Score):</strong> A documentação passou a abordar mais critérios de privacidade no período pós-GDPR?</p><ul><li><strong>Hipótese nula (H0₂):</strong> não há diferença no PDE Score entre os períodos.</li><li><strong>Hipótese alternativa (H1₂):</strong> há diferença no PDE Score entre os períodos.</li></ul><p>Os testes são bicaudais: consideram tanto aumento quanto redução.</p>",
   "navHome": "Início",
   "navResults": "Resultados",
   "navData": "Dados coletados",
