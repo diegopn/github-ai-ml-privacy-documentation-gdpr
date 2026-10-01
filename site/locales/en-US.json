@@ -68,7 +68,7 @@
   "criteriaCaption": "Frequency of C1 to C7",
   "transitionCaption": "D1 transition matrix",
   "toc": "On this page",
-  "researchQuestions": "Research questions and hypotheses",
+  "researchQuestions": "Questions and hypotheses",
   "researchQuestionsBody": "<p><strong>RQ1 — Presence (D1):</strong> Did the proportion of repositories with privacy documentation increase in the post-GDPR period?</p><ul><li><strong>Null hypothesis (H0₁):</strong> There is no difference in this proportion between periods.</li><li><strong>Alternative hypothesis (H1₁):</strong> There is a difference in this proportion between periods.</li></ul><p><strong>RQ2 — Scope (PDE Score):</strong> Did the documentation cover more privacy criteria in the post-GDPR period?</p><ul><li><strong>Null hypothesis (H0₂):</strong> There is no difference in PDE Score between periods.</li><li><strong>Alternative hypothesis (H1₂):</strong> There is a difference in PDE Score between periods.</li></ul><p>Both tests are two-sided: they consider increases and decreases.</p>",
   "navHome": "Home",
   "navResults": "Results",
