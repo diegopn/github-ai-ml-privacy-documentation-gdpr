@@ -119,6 +119,7 @@
     document.documentElement.style.setProperty("--brand-tagline", JSON.stringify(copy.brandTagline));
     setText("#hero-note", copy.heroNote);
     setText("#visao-geral h2", copy.overview, false);
+    setText("#perguntas-hipoteses h2", copy.researchQuestions, false);
     setText("#resultado-principal h2", copy.mainResult, false);
     setText("#cobertura-vocabulario h2", copy.vocabularyCoverage, false);
     setText("#resultados h2", copy.detailedResults, false);
