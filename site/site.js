@@ -173,6 +173,7 @@
     setText("#TOC #toc-title", copy.toc, false);
     const tocLabels = {
       "#visao-geral": copy.overview,
+      "#perguntas-hipoteses": copy.researchQuestions,
       "#resultado-principal": copy.mainResult,
       "#cobertura-vocabulario": copy.vocabularyCoverage,
       "#resultados": copy.detailedResults,
@@ -189,6 +190,7 @@
     setText(".nav-footer-left", copy.footerLeft, false);
     setText(".nav-footer-right", copy.footerRight, false);
     const nav = [
+      ["#perguntas-hipoteses", copy.researchQuestions],
       ["#resultados", copy.navResults], ["#dados", copy.navData],
       ["#metodologia", copy.navMethodology], ["#reproducao", copy.navReproduction]
     ];
