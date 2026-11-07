@@ -1,4 +1,4 @@
-# Experimento de documentação de privacidade em repositórios de IA/ML
+# Experimento de documentação de privacidade em repositórios de IA/ML no GitHub
 
 Este projeto reúne, em R, a seleção da amostra, a coleta histórica, a
 classificação documental, a análise estatística e a publicação dos resultados
