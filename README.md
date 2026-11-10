@@ -31,12 +31,25 @@ Este estudo pergunta se a documentação pública de privacidade em projetos de 
 | Evidência | Indicador contextual `D1` e critérios documentais `C1–C7`, reunidos no PDE Score. |
 | Comparação | Testes pareados exatos para `D1` e para as diferenças do PDE Score. |
 
-## Perguntas de pesquisa
+## Perguntas de pesquisa e hipóteses
 
-| Questão | Medida usada |
-|---|---|
-| **RQ1** | Mudança na presença de evidência documental contextualizada (`D1`), comparada pelo teste exato de McNemar. |
-| **RQ2** | Mudança no PDE Score, soma dos critérios `C1–C7`, comparada pelo teste exato de Wilcoxon. |
+### RQ1 — Presença documental (D1)
+
+A proporção de repositórios com documentação de privacidade aumentou no período pós-GDPR?
+
+- **H0:** não há diferença nessa proporção entre os períodos.
+- **H1:** há diferença nessa proporção entre os períodos.
+- **Teste:** McNemar exato, bicaudal.
+
+### RQ2 — Abrangência documental (PDE Score)
+
+A documentação passou a abordar mais critérios de privacidade no período pós-GDPR?
+
+- **H0:** não há diferença no PDE Score entre os períodos.
+- **H1:** há diferença no PDE Score entre os períodos.
+- **Teste:** Wilcoxon pareado exato, bicaudal.
+
+Os dois testes são bicaudais: avaliam aumento ou redução. O nível de significância definido no projeto é α = 0,05.
 
 ## Estrutura do repositório
 
@@ -115,6 +128,7 @@ cp .env.example .env
 
 No Windows PowerShell, use `Copy-Item .env.example .env`. O arquivo `.env` é ignorado pelo Git. Não inclua o token em commits, issues ou logs.
 
+<a id="comandos-e-reproducao"></a>
 ## Comandos e reprodução
 
 Execute os comandos a partir da raiz do repositório. O fluxo sem argumentos equivale a `--run` e começa uma execução completa. Para conferir as opções:
@@ -204,7 +218,7 @@ Cada consulta da Search API é dividida por data de criação quando necessário
 | `C6` | Compartilhamento. |
 | `C7` | Proteção. |
 
-O PDE Score soma `C1–C7`. Ele descreve o que está documentado nos snapshots; não é auditoria jurídica nem certificação de conformidade.
+O PDE Score soma `C1–C7`. Os snapshots incluem o README da raiz e documentos textuais cujos nomes ou caminhos indicam privacidade, segurança, proteção de dados, termos, consentimento, retenção ou conformidade. O resultado descreve o que está documentado; não é auditoria jurídica nem certificação de conformidade, e não atribui causalidade exclusiva ao GDPR.
 
 | Pergunta | Teste |
 |---|---|
