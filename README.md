@@ -1,25 +1,52 @@
-# Experimento de documentação de privacidade em repositórios de IA/ML no GitHub
+<h1 align="center">Documentação de privacidade em repositórios de IA/ML</h1>
 
-Este projeto reúne, em R, a seleção da amostra, a coleta histórica, a
-classificação documental, a análise estatística e a publicação dos resultados
-em uma página Quarto. A busca utiliza 24 tópicos de IA/ML, incluindo visão,
-NLP, LLMs, transformers, geração, difusão, multimodalidade, RAG e agentes. A
-unidade de análise é o repositório público observado em dois snapshots:
+<p align="center">Experimento pareado para comparar a documentação versionada antes e depois da aplicação do GDPR.</p>
 
-- pré-GDPR: último commit até `2018-05-24T23:59:59Z`;
-- pós-GDPR: último commit até `2026-06-30T23:59:59Z`.
+<p align="center">
+  <a href="https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/">Abrir resultados</a> ·
+  <a href="inputs/reference/literature_methods.md">Ver referências e proveniência</a> ·
+  <a href="#comandos-e-reproducao">Reproduzir o estudo</a>
+</p>
 
-A página é gerada a partir dos artefatos locais e pode ser publicada pelo
-workflow incluído no repositório. Esta cópia não altera nem publica o projeto
-original.
+<p align="center">
+  <a href="https://www.r-project.org/"><img alt="R 4.6 ou superior" src="https://img.shields.io/badge/R-4.6%2B-276DC3?style=for-the-badge&logo=r&logoColor=white"></a>
+  <a href="https://quarto.org/"><img alt="Quarto" src="https://img.shields.io/badge/Quarto-39729E?style=for-the-badge&logo=quarto&logoColor=white"></a>
+  <a href="https://docs.github.com/en/rest"><img alt="GitHub REST API" src="https://img.shields.io/badge/GitHub_API-181717?style=for-the-badge&logo=github&logoColor=white"></a>
+  <a href="https://pages.github.com/"><img alt="GitHub Pages" src="https://img.shields.io/badge/GitHub_Pages-222222?style=for-the-badge&logo=githubpages&logoColor=white"></a>
+  <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/badge/License-MIT-2ea44f?style=for-the-badge&logo=opensourceinitiative&logoColor=white"></a>
+</p>
 
-## Estrutura
+Este estudo pergunta se a documentação pública de privacidade em projetos de IA/ML mudou após a aplicação do GDPR. Para responder, seleciona repositórios públicos do GitHub, recupera a versão de cada repositório em dois momentos históricos e compara as evidências encontradas nos mesmos projetos.
+
+> **O que o resultado mede:** presença de informações documentadas nos arquivos versionados. O estudo não executa os projetos nem determina se eles cumprem a legislação.
+
+## O estudo em resumo
+
+| Elemento | Definição |
+|---|---|
+| Unidade de análise | Um repositório público do GitHub, observado nos dois snapshots. |
+| Snapshot pré-GDPR | Último commit até **24/05/2018 23:59:59 UTC**. |
+| Snapshot pós-GDPR | Último commit até **30/06/2026 23:59:59 UTC**. |
+| Descoberta | 24 tópicos de IA/ML configurados no projeto. |
+| Evidência | Indicador contextual `D1` e critérios documentais `C1–C7`, reunidos no PDE Score. |
+| Comparação | Testes pareados exatos para `D1` e para as diferenças do PDE Score. |
+
+## Perguntas de pesquisa
+
+| Questão | Medida usada |
+|---|---|
+| **RQ1** | Mudança na presença de evidência documental contextualizada (`D1`), comparada pelo teste exato de McNemar. |
+| **RQ2** | Mudança no PDE Score, soma dos critérios `C1–C7`, comparada pelo teste exato de Wilcoxon. |
+
+## Estrutura do repositório
+
+Cada diretório acompanha uma etapa do experimento: seleção da amostra, recuperação dos snapshots, classificação documental, análise estatística e geração da página. A separação também distingue o código dos dados de entrada e dos resultados produzidos.
 
 ```text
 main.R                       composição e execução do pipeline
-config/settings.yml          parâmetros e caminhos do projeto
+config/settings.yml          parâmetros, critérios e caminhos
 src/
-├── app/                     CLI e coordenação das etapas
+├── app/                     interface de linha de comando e coordenação
 ├── config/                  leitura e validação da configuração
 ├── clients/                 acesso à API do GitHub
 ├── selection/               descoberta e filtro da amostra
@@ -29,243 +56,205 @@ src/
 ├── analysis/                estatística pareada
 ├── reporting/               tabelas, gráficos e relatórios
 ├── storage/                 leitura, escrita e validação de artefatos
-└── shared/                  conversões escalares usadas por módulos
-inputs/                      amostra, checkpoint e referências
+└── shared/                  conversões usadas por vários módulos
+inputs/                      amostra, checkpoints e referências
 outputs/                     resultados derivados e manifestos
-site/                        estilos e comportamento da página
-tests/                      contratos do pipeline e dos cálculos
+site/                        estilos, idiomas e comportamento da página
+tests/                       contratos do pipeline e dos cálculos
 index.qmd                    página Quarto na raiz
 ```
 
-## Requisitos
+## Instalação
 
-- R 4.6 ou superior;
-- Quarto;
-- `R6`, `jsonlite`, `yaml`, `knitr` e `rmarkdown`;
-- executável `curl` disponível no PATH para chamadas à API do GitHub.
+### Pré-requisitos
 
-No R:
+| Ferramenta | Versão ou requisito | Uso |
+|---|---|---|
+| R | 4.6 ou superior | Pipeline, validações e análise estatística. |
+| Quarto | Versão atual | Pré-visualização e renderização da página. |
+| `curl` | Disponível no `PATH` | Chamadas HTTP à API do GitHub. |
+| Git | Instalado no sistema | Baixar o repositório. |
+
+No Debian ou Ubuntu, instale `curl` com:
+
+```bash
+sudo apt-get update
+sudo apt-get install curl
+```
+
+No macOS com Homebrew:
+
+```bash
+brew install curl
+```
+
+Instale o R pelo [site do projeto](https://www.r-project.org/) e o Quarto pelo [guia oficial](https://quarto.org/docs/get-started/).
+
+### Baixar e preparar o projeto
+
+No terminal:
+
+```bash
+git clone https://github.com/diegopn/github-ai-ml-privacy-documentation-gdpr.git
+cd github-ai-ml-privacy-documentation-gdpr
+```
+
+No console do R, instale as dependências diretas:
 
 ```r
 install.packages(c("R6", "jsonlite", "yaml", "knitr", "rmarkdown"))
 ```
 
-Conforme a seção III-F do artigo, a análise preserva os dois testes exatos
-e bicaudais. Usa as funções nativas de `stats`: `binom.test()` nas contagens
-discordantes para o McNemar exato da RQ1, e `wilcox.test(exact = TRUE)` nas
-diferenças não nulas para o Wilcoxon da RQ2. O R 4.6 calcula o Wilcoxon exato
-também com empates, dispensando uma implementação própria. `mcnemar.test()`
-fornece a aproximação qui-quadrado, que não corresponde ao teste exato do
-protocolo. Os hashes usam `tools::sha256sum`. Todas essas chamadas permanecem
-encapsuladas nos métodos R6, sem dependências adicionais.
+### Configurar o token do GitHub
 
-O token da API deve ficar em `GITHUB_TOKEN` ou em um arquivo `.env` local:
-
-```text
-GITHUB_TOKEN=seu_token
-```
-
-O arquivo `.env` é ignorado pelo Git.
-
-## Execução
-
-O fluxo principal é centralizado em `main.R`. `--run` executa tudo do zero:
-cria uma amostra nova, faz as coletas históricas, executa a análise e renderiza
-o site:
+Copie o modelo de ambiente e substitua o valor de exemplo por um token que possa consultar dados públicos:
 
 ```bash
-export GITHUB_TOKEN="seu-token"
-Rscript main.R --run
+cp .env.example .env
 ```
 
-O mesmo fluxo pode ser dividido em duas etapas. `--select` sempre cria uma
-amostra nova e, em seguida, coleta os dois snapshots históricos para todos os
-repositórios selecionados. Não reutiliza a amostra nem o checkpoint de uma
-execução anterior:
+No Windows PowerShell, use `Copy-Item .env.example .env`. O arquivo `.env` é ignorado pelo Git. Não inclua o token em commits, issues ou logs.
 
-```bash
-Rscript main.R --select
-```
+## Comandos e reprodução
 
-Depois que `--select` terminar com sucesso, `--analyze` valida que a coleta
-pertence à amostra recém-criada, refaz a análise offline e gera o site. Esta
-etapa não chama a API do GitHub:
-
-```bash
-Rscript main.R --analyze
-```
-
-Se a seleção ou a coleta falhar, `--analyze` interrompe antes de produzir
-resultados com entradas incompletas ou desatualizadas. `--analyze` depende da
-execução bem-sucedida de `--select` ou `--run` para a amostra atual.
-A validação exige um registro por repositório, o mesmo hash de amostra e os
-mesmos cortes históricos configurados, além de commits, árvores e downloads
-completos. Ela não repara nem trunca o checkpoint. Árvores marcadas como
-truncadas ficam identificadas e seus pares são excluídos dos testes estatísticos.
-Os manifestos com fingerprint também impedem reutilizar uma seleção produzida
-com critérios diferentes dos atuais.
-
-O terminal identifica cada etapa. Na busca, informa o tópico e os resultados;
-na seleção e na coleta, mostra apenas a contagem de repositórios aprovados ou
-processados em relação ao total, com atualizações a cada 60 segundos e ao
-concluir. Não exibe estimativa de tempo restante. O estado também fica em
-`outputs/metadata/run_status.json`, incluindo a etapa atual e o PID da execução.
-Um lock impede duas execuções do mesmo projeto de sobrescreverem artefatos.
-
-A coleta é deliberadamente serial para manter a ordem, a reprodutibilidade e o
-limite da API do GitHub. O intervalo normal entre chamadas é aplicado sem
-mensagens repetidas; quando o GitHub impõe um limite, o terminal informa que
-está aguardando a renovação, sem estimar o horário de conclusão. O estado do
-limitador fica em `outputs/metadata/github_api_rate_state.json` (ignorado pelo
-Git). As chamadas registram os headers de limite sem armazenar o token e não
-repetem indefinidamente erros 403 que não sejam de rate limit. Quando o GitHub
-informa um limite temporário, o mesmo pedido aguarda o reset e é tentado
-novamente dentro do limite configurado. Se não for possível aguardar com
-segurança, a etapa falha sem trocar uma nova amostra pela anterior. Uma nova
-execução de `--select` começa do zero.
-
-As opções operacionais são `--run`, `--select`, `--analyze` e `--help`.
-`--test` executa os contratos offline e `--prepare-site` prepara a apresentação
-dos artefatos locais para o Quarto.
-Sem opção, o programa executa o mesmo fluxo completo de `--run`. Não há modo de
-continuação: cada `--select` inicia uma seleção e coleta novas.
-
-Para consultar a ajuda:
+Execute os comandos a partir da raiz do repositório. O fluxo sem argumentos equivale a `--run` e começa uma execução completa. Para conferir as opções:
 
 ```bash
 Rscript main.R --help
 ```
 
-Os testes contratuais ficam separados do código operacional e não fazem
-chamadas à API. Quando quiser executá-los manualmente:
+| Comando | Acesso à API | Efeito e quando usar |
+|---|---|---|
+| `Rscript main.R --run` | Sim | Cria uma nova amostra, coleta os dois snapshots para os repositórios selecionados, faz a análise e renderiza a página. É o fluxo completo. |
+| `Rscript main.R --select` | Sim | Cria uma amostra nova e coleta os dois snapshots para ela. Use antes de `--analyze` quando quiser separar coleta e análise. |
+| `Rscript main.R --analyze` | Não | Valida os dados da amostra atual, executa a análise offline e gera a página. Só use após `--select` ou `--run` terminar com sucesso. |
+| `Rscript main.R --test` | Não | Executa os testes de contrato offline; não consulta a API do GitHub. |
+| `Rscript main.R --help` | Não | Mostra a ajuda da linha de comando. 
+| `Rscript main.R --prepare-site` | Não | Atualiza o conteúdo local de `index.qmd` para a renderização. O Quarto chama esse modo automaticamente durante o pré-processamento. |
+| `quarto preview` | Não | Abre uma prévia local da página. O Quarto executa a preparação local configurada no projeto. |
+| `quarto render` | Não | Gera os arquivos estáticos do site. |
+
+### Fluxo recomendado
+
+Para reproduzir tudo do início ao fim, configure `GITHUB_TOKEN` no ambiente ou em `.env` e execute:
 
 ```bash
-Rscript main.R --test
+Rscript main.R --run
 ```
 
-`main.R` é a única entrada procedural R, inclusive para testes e preparação do site.
-`tests/test_contracts.R` declara a classe da suíte; carregar esse arquivo não executa testes.
-As classes de produção são carregadas em um único ambiente isolado. A composição
-das dependências continua explícita em `ProjectBootstrap`. `SiteContentWriter`
-prepara o conteúdo e renderiza o site. As APIs de transporte são `request_json()`
-e `request_text()`; a reclassificação explícita usa `DatasetBuilder$reclassify()`.
-A leitura JSONL é estrita e nunca modifica o arquivo lido.
-Cada arquivo R de `src/` e `tests/` declara uma única classe. Os contratos exercitam
-as APIs públicas, incluindo uma comparação do Wilcoxon com enumeração exata em
-3.125 combinações de sinais, zeros e empates.
-O Quarto chama `main.R --prepare-site` antes de renderizar e usa as tabelas e
-estatísticas exportadas, sem recalcular a população de análise na página.
-A apresentação é editada em `site/index-template.md`; `SiteContentWriter` gera
-`index.qmd` com os valores locais. Esse arquivo gerado permanece versionado
-para que o Quarto também possa descobrir a página antes de executar o pre-render.
-Os links e o manifesto de resultados usam os caminhos configurados; a página
-confere o hash da amostra e rejeita estatísticas desatualizadas ou marcadores de
-template sem valor antes de substituir `index.qmd`.
+Se preferir separar a coleta da análise, execute primeiro:
 
-`main.R` é a única entrada operacional. Os caminhos padrão, o nível de
-significância, os critérios de seleção e os parâmetros de retry estão em
-`config/settings.yml`. A cada nova seleção, o CSV é escrito em arquivo temporário,
-validado e publicado com seu hash em `inputs/final/published_sample.sha256.txt`.
-O manifesto persistente de seleção confirma o hash e o protocolo. A validação
-offline usa esses arquivos versionados, sem depender de estado transitório da
-sessão anterior.
+```bash
+Rscript main.R --select
+```
 
-O seletor de idioma carrega `site/locales/pt-BR.json` ou
-`site/locales/en-US.json`; o JavaScript cuida apenas do comportamento e da
-aplicação dos textos. Os JSON são usados diretamente pelo site estático, sem
-compilação gettext ou arquivos `.po`.
+Quando a coleta terminar com sucesso, execute a etapa offline:
 
-## Escopo e critérios
+```bash
+Rscript main.R --analyze
+```
 
-A unidade de análise é exclusivamente o repositório público do GitHub. O
-experimento compara a documentação versionada em cada repositório em dois
-snapshots: o último commit até 24/05/2018 23:59:59 UTC, antes da aplicação da
-GDPR, e o último commit até 30/06/2026 23:59:59 UTC. Não são analisadas outras
-plataformas ou coleções de artefatos.
+Cada execução de `--select` inicia uma amostra nova; não reutiliza a amostra nem retoma um checkpoint anterior. O fluxo completo `--run` também começa do zero. Se seleção ou coleta falhar, `--analyze` interrompe antes de produzir resultados com dados incompletos ou desatualizados.
 
-A busca usa os 24 tópicos configurados em config/settings.yml. Os critérios de
-elegibilidade são: repositório público, não fork, não arquivado, criado antes
-de 25/05/2018, pelo menos 500 estrelas, pelo menos 100 issues reais, atividade
-de no mínimo 24 meses, atividade nos dois períodos históricos e licença
-SPDX/OSI aprovada.
+### Visualizar localmente
 
-A proveniência separa a origem histórica da escolha do apoio conceitual. Doze
-etiquetas estão enumeradas por Openja et al. (2024); Gonzalez, Zimmermann e
-Nagappan (2020) citam natural-language-processing como exemplo de etiqueta
-relacionada a IA/ML. As outras onze escolhas do protocolo são nlp e dez termos
-adicionais. As fontes que explicam os conceitos desses dez termos não são a
-origem histórica da lista. O CSV registra esses papéis em colunas separadas.
-Nenhum desses trabalhos definiu conjuntamente os 24 termos ou os limiares de
-elegibilidade. Um tópico associado a um repositório é sinal de descoberta,
-não prova automática de seu escopo técnico.
-
-Cada consulta da Search API é particionada por data de criação quando necessário
-para respeitar o limite de 1.000 resultados. O manifesto
-outputs/metadata/selection_search_manifest.json registra as partições,
-contagens e páginas baixadas. A contagem de issues reais é feita em lotes pela
-GraphQL API, reduzindo chamadas individuais à Search API; o resultado é
-verificado junto aos demais critérios antes da aprovação.
-
-## Site
-
-Para visualizar localmente:
+Depois de uma execução bem-sucedida, a página pode ser aberta com:
 
 ```bash
 quarto preview
 ```
 
-Para gerar os arquivos estáticos:
+Para gerar o site estático:
 
 ```bash
 quarto render
 ```
 
-O workflow `.github/workflows/quarto-publish.yml` renderiza e publica a página
-no GitHub Pages após atualizações na branch principal. A página única apresenta
-os resultados, a amostra, os documentos recuperados, as evidências positivas,
-os arquivos de saída, a metodologia e as instruções de reprodução.
+## Como a amostra é formada
 
-A página identifica automaticamente o idioma preferido do navegador, oferecendo
-português do Brasil e inglês dos Estados Unidos no seletor do cabeçalho. O tema
-claro/escuro acompanha a preferência do sistema por padrão; o controle de tema
-permite fixar claro, escuro ou automático no navegador. Essas preferências são
-locais e não alteram os dados, os cálculos ou os artefatos do experimento.
+A unidade de análise é o repositório público do GitHub e sua documentação versionada nos dois snapshots. A descoberta usa 24 tópicos de IA/ML, definidos em [`config/settings.yml`](config/settings.yml) e relacionados em [`inputs/reference/ai_ml_topics_used.csv`](inputs/reference/ai_ml_topics_used.csv). Os critérios e limites abaixo pertencem a este protocolo; os artigos citados ajudam a explicar as fontes dos termos e não definem conjuntamente esses critérios.
+
+| Critério de elegibilidade | Regra |
+|---|---|
+| Visibilidade e estado | Público, não fork e não arquivado. |
+| Criação | Criado antes de **25/05/2018**. |
+| Popularidade e histórico | Pelo menos 500 estrelas, 100 issues reais e 24 meses de atividade. |
+| Atividade nos snapshots | Evidência de atividade nos períodos pré e pós-GDPR. |
+| Licença | Identificador SPDX aprovado pela lista OSI adotada pelo protocolo. |
+
+### De onde vêm os 24 tópicos
+
+- Doze etiquetas — entre elas `machine-learning`, `computer-vision` e `object-detection` — são enumeradas por Openja et al. (2024).
+- `natural-language-processing` é citado por Gonzalez, Zimmermann e Nagappan (2020) como exemplo de etiqueta relacionada a IA/ML.
+- As onze escolhas restantes são `nlp` e `large-language-model`, `large-language-models`, `llm`, `transformer`, `transformers`, `generative-ai`, `diffusion`, `multimodal`, `retrieval-augmented-generation` e `ai-agents`.
+- Fontes conceituais apoiam o significado dos dez termos adicionais; elas não são apresentadas como a origem histórica da lista.
+
+Cada consulta da Search API é dividida por data de criação quando necessário para respeitar o limite de 1.000 resultados. [`outputs/metadata/selection_search_manifest.json`](outputs/metadata/selection_search_manifest.json) registra partições, contagens e páginas baixadas. A contagem de issues reais é feita em lotes pela GraphQL API e conferida com os demais critérios.
+
+## Como a documentação é avaliada
+
+| Medida | Definição |
+|---|---|
+| `D1` | Evidência documental de privacidade contextualizada no repositório. |
+| `C1` | Dados pessoais. |
+| `C2` | Finalidade. |
+| `C3` | Base legal. |
+| `C4` | Direitos. |
+| `C5` | Retenção ou exclusão. |
+| `C6` | Compartilhamento. |
+| `C7` | Proteção. |
+
+O PDE Score soma `C1–C7`. Ele descreve o que está documentado nos snapshots; não é auditoria jurídica nem certificação de conformidade.
+
+| Pergunta | Teste |
+|---|---|
+| RQ1: presença de `D1` | Teste exato e bicaudal de McNemar, calculado com `stats::binom.test()` nas contagens discordantes. |
+| RQ2: variação do PDE Score | Teste exato e bicaudal de Wilcoxon com `stats::wilcox.test(exact = TRUE)`, aplicado às diferenças não nulas. |
+| Intervalo para a mediana das diferenças | Bootstrap, conforme Efron (1979). |
+
+O procedimento é pareado: compara cada repositório consigo mesmo. Árvores truncadas ou pares sem snapshots íntegros ficam identificados e são excluídos dos testes. Para o Wilcoxon, o R 4.6 calcula o valor exato também com empates; para McNemar, o projeto usa `binom.test()` nas contagens discordantes, pois `mcnemar.test()` fornece uma aproximação qui-quadrado. O código exporta os casos e evidências para a revisão manual prevista na seção III-E do artigo; executar os testes automáticos não substitui essa revisão.
 
 ## Resultados e rastreabilidade
 
-O projeto preserva:
+| Artefato | O que permite conferir |
+|---|---|
+| CSV da amostra e hash | Quais repositórios foram selecionados e se a amostra analisada é a mesma. |
+| Checkpoint bruto JSONL | Respostas coletadas antes da transformação em dataset. |
+| Dataset final e evidências positivas | Classificações, SHA, arquivo e trecho que sustentam as evidências. |
+| Tabelas, gráficos e relatórios | Resultados derivados da análise pareada. |
+| Manifestos | Versões, hashes, método estatístico, tópicos e consultas de descoberta. |
+| `outputs/metadata/run_status.json` | Etapa atual da execução e PID do processo. |
+| `outputs/metadata/github_api_rate_state.json` | Estado local do limitador da API; ignorado pelo Git. |
 
-- o CSV da amostra e seu hash;
-- o checkpoint bruto JSONL;
-- o dataset final;
-- as evidências positivas com SHA, arquivo e trecho textual;
-- estatísticas, tabelas, gráficos e relatórios;
-- o manifesto com versões, hashes, método estatístico e tópicos usados;
-- o manifesto das consultas de descoberta e o status da execução.
+A validação de `--analyze` exige um registro por repositório, o hash da amostra atual, os cortes configurados e downloads íntegros. Manifestos com fingerprint impedem reaproveitar seleção criada com critérios diferentes. Um lock evita duas execuções do mesmo projeto sobrescreverem artefatos.
 
-D1 indica evidência documental contextualizada. O PDE Score soma C1 a C7:
-dados pessoais, finalidade, base legal, direitos, retenção ou exclusão,
-compartilhamento e proteção. O resultado mede documentação versionada e não
-constitui auditoria jurídica.
+<details>
+<summary>Detalhes de coleta e implementação</summary>
 
-A seção III-E do artigo prevê revisão manual de todos os casos com D1=1,
-de uma amostra dos casos com D1=0 e dos critérios C1–C7. O pipeline exporta
-as classificações e evidências para essa conferência; executar os testes
-automáticos não comprova que a revisão manual foi realizada.
+A coleta é serial para manter ordem, reprodutibilidade e respeito às cotas. O terminal mostra a etapa e, durante seleção e coleta, a quantidade processada a cada 60 segundos, sem estimativa de tempo restante. Chamadas registram headers de limite sem guardar o token; erros 403 que não sejam de limite não são repetidos indefinidamente. Quando a API informa limite temporário, a chamada pode aguardar o reset dentro do orçamento configurado.
 
-## Referências metodológicas
+Os arquivos de `src/` e `tests/` organizam a aplicação em classes R6. `main.R` compõe o pipeline; `ProjectBootstrap` monta os serviços; `SiteContentWriter` prepara os arquivos usados pelo Quarto. A leitura de JSONL é estrita e não altera o arquivo de origem. O site usa os dados exportados e não recalcula a população analítica.
 
-Gonzalez, Zimmermann e Nagappan (2020) e Openja et al. (2024) têm função
-demonstrável na proveniência histórica dos tópicos. Kumar (2024), Vaswani et
-al. (2017), Feuerriegel et al. (2024), Ho et al. (2020), Lewis et al. (2020)
-e Wang et al. (2024) apoiam conceitos dos dez termos adicionais, sem fornecer
-a lista de busca. O Regulamento (UE) 2016/679 estabelece o marco temporal.
-McNemar (1947), Wilcoxon (1945) e Efron (1979) fundamentam, respectivamente,
-os testes pareados e o intervalo bootstrap usados na análise. A bibliografia,
-a função de cada fonte e a proveniência por tópico estão em
-[inputs/reference/literature_methods.md](inputs/reference/literature_methods.md).
+</details>
 
-## Apoie o projeto
+## Site e publicação
+
+O [site de resultados](https://diegopn.github.io/github-ai-ml-privacy-documentation-gdpr/) reúne resultados, amostra, documentos recuperados, evidências, arquivos de saída, metodologia e instruções de reprodução. A interface oferece português do Brasil e inglês dos Estados Unidos e permite tema claro, escuro ou automático; essas preferências ficam no navegador.
+
+O workflow [`quarto-publish.yml`](.github/workflows/quarto-publish.yml) renderiza e publica a página no GitHub Pages após atualizações na branch principal. A geração local não publica nada.
+
+## Referências e proveniência
+
+As fontes têm papéis diferentes. Openja e Gonzalez ajudam a rastrear a origem histórica de parte dos rótulos; os artigos conceituais apoiam a interpretação dos termos adicionais; GDPR, McNemar, Wilcoxon e Efron fundamentam o marco temporal e os métodos estatísticos. A bibliografia completa, as funções de cada fonte e a proveniência de cada tópico estão em [`inputs/reference/literature_methods.md`](inputs/reference/literature_methods.md).
+
+| Uso no estudo | Referências principais |
+|---|---|
+| Marco temporal | [Regulamento (UE) 2016/679, art. 99(2)](https://eur-lex.europa.eu/eli/reg/2016/679), que estabelece 25/05/2018 como data de aplicação. |
+| Proveniência de tópicos | Gonzalez, Zimmermann e Nagappan (2020), [MSR 2020](https://doi.org/10.1145/3379597.3387473), e Openja et al. (2024), [TOSEM](https://doi.org/10.1145/3680463). Eles não definem os 24 termos nem os limiares deste protocolo. |
+| Apoio conceitual aos termos adicionais | Kumar (2024), [LLMs](https://doi.org/10.1007/s10462-024-10888-y); Vaswani et al. (2017), [Transformers](https://arxiv.org/abs/1706.03762); Feuerriegel et al. (2024), [IA generativa](https://doi.org/10.1007/s12599-023-00834-7); Ho et al. (2020), [difusão](https://arxiv.org/abs/2006.11239); Lewis et al. (2020), [RAG](https://proceedings.neurips.cc/paper/2020/hash/6b493230205f780e1bc26945df7481e5-Abstract.html); Wang et al. (2024), [agentes](https://doi.org/10.1007/s11704-024-40231-1). |
+| Métodos estatísticos | McNemar (1947), [teste para proporções correlacionadas](https://doi.org/10.1007/BF02295996); Wilcoxon (1945), [comparações por postos](https://doi.org/10.2307/3001968); Efron (1979), [bootstrap](https://doi.org/10.1214/aos/1176344552). |
+
+## Apoio
 
 Se este estudo e seus artefatos forem úteis para sua pesquisa, você pode apoiar a manutenção do projeto pelo [GitHub Sponsors](https://github.com/sponsors/diegopn).
 
@@ -275,8 +264,8 @@ Se este estudo e seus artefatos forem úteis para sua pesquisa, você pode apoia
 
 ## Segurança
 
-Consulte [SECURITY.md](SECURITY.md) para conhecer as versões cobertas e como relatar vulnerabilidades de forma privada.
+Consulte a [política de segurança](SECURITY.md) para ver o escopo e como relatar uma vulnerabilidade de forma privada.
 
 ## Licença
 
-Este projeto é distribuído sob a [Licença MIT](LICENSE).
+Distribuído sob a [Licença MIT](LICENSE).
