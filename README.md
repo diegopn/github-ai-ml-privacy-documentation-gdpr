@@ -253,11 +253,6 @@ de uma amostra dos casos com D1=0 e dos critérios C1–C7. O pipeline exporta
 as classificações e evidências para essa conferência; executar os testes
 automáticos não comprova que a revisão manual foi realizada.
 
-## Licença
-
-Este projeto é distribuído sob a [Licença MIT](LICENSE), mantida no arquivo
-`LICENSE` da raiz.
-
 ## Referências metodológicas
 
 Gonzalez, Zimmermann e Nagappan (2020) e Openja et al. (2024) têm função
@@ -269,3 +264,19 @@ McNemar (1947), Wilcoxon (1945) e Efron (1979) fundamentam, respectivamente,
 os testes pareados e o intervalo bootstrap usados na análise. A bibliografia,
 a função de cada fonte e a proveniência por tópico estão em
 [inputs/reference/literature_methods.md](inputs/reference/literature_methods.md).
+
+## Apoie o projeto
+
+Se este estudo e seus artefatos forem úteis para sua pesquisa, você pode apoiar a manutenção do projeto pelo [GitHub Sponsors](https://github.com/sponsors/diegopn).
+
+<p align="left">
+  <a href="https://github.com/sponsors/diegopn"><img alt="Apoie o projeto de pesquisa" src="https://img.shields.io/badge/Sponsor-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white"></a>
+</p>
+
+## Segurança
+
+Consulte [SECURITY.md](SECURITY.md) para conhecer as versões cobertas e como relatar vulnerabilidades de forma privada.
+
+## Licença
+
+Este projeto é distribuído sob a [Licença MIT](LICENSE).
