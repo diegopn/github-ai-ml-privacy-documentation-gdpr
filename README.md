@@ -259,14 +259,35 @@ O workflow [`quarto-publish.yml`](.github/workflows/quarto-publish.yml) renderiz
 
 ## Referências e proveniência
 
-As fontes têm papéis diferentes. Openja e Gonzalez ajudam a rastrear a origem histórica de parte dos rótulos; os artigos conceituais apoiam a interpretação dos termos adicionais; GDPR, McNemar, Wilcoxon e Efron fundamentam o marco temporal e os métodos estatísticos. A bibliografia completa, as funções de cada fonte e a proveniência de cada tópico estão em [`inputs/reference/literature_methods.md`](inputs/reference/literature_methods.md).
+As referências bibliográficas seguem a ABNT NBR 6023:2025. Os títulos permanecem vinculados aos artigos, anais ou textos oficiais; os DOI e endereços eletrônicos permitem localizar cada fonte. A bibliografia detalhada, a função de cada fonte e a origem de cada tópico estão em [inputs/reference/literature_methods.md](inputs/reference/literature_methods.md).
 
-| Uso no estudo | Referências principais |
+### Referências bibliográficas
+
+- EFRON, B. [Bootstrap methods: another look at the jackknife](https://doi.org/10.1214/aos/1176344552). *The Annals of Statistics*, v. 7, n. 1, p. 1–26, 1979. DOI: 10.1214/aos/1176344552.
+- FEUERRIEGEL, S. et al. [Generative AI](https://doi.org/10.1007/s12599-023-00834-7). *Business & Information Systems Engineering*, v. 66, n. 1, p. 111–126, 2024. DOI: 10.1007/s12599-023-00834-7.
+- GONZALEZ, D.; ZIMMERMANN, T.; NAGAPPAN, N. [The state of the ML-universe: 10 years of artificial intelligence & machine learning software development on GitHub](https://doi.org/10.1145/3379597.3387473). In: INTERNATIONAL CONFERENCE ON MINING SOFTWARE REPOSITORIES, 17., 2020. *Proceedings [...]*. 2020. p. 431–442. DOI: 10.1145/3379597.3387473.
+- HO, J.; JAIN, A.; ABBEEL, P. [Denoising diffusion probabilistic models](https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html). In: ADVANCES IN NEURAL INFORMATION PROCESSING SYSTEMS, 33., 2020, Vancouver. *Proceedings [...]*. 2020.
+- KUMAR, P. [Large language models (LLMs): survey, technical frameworks, and future challenges](https://doi.org/10.1007/s10462-024-10888-y). *Artificial Intelligence Review*, v. 57, n. 10, art. 260, 2024. DOI: 10.1007/s10462-024-10888-y.
+- LEWIS, P. et al. [Retrieval-augmented generation for knowledge-intensive NLP tasks](https://proceedings.neurips.cc/paper/2020/hash/6b493230205f780e1bc26945df7481e5-Abstract.html). In: ADVANCES IN NEURAL INFORMATION PROCESSING SYSTEMS, 33., 2020, Vancouver. *Proceedings [...]*. 2020. p. 9459–9474.
+- MCNEMAR, Q. [Note on the sampling error of the difference between correlated proportions or percentages](https://doi.org/10.1007/BF02295996). *Psychometrika*, v. 12, n. 2, p. 153–157, 1947. DOI: 10.1007/BF02295996.
+- OPENJA, M. et al. [An empirical study of testing machine learning in the wild](https://doi.org/10.1145/3680463). *ACM Transactions on Software Engineering and Methodology*, v. 34, n. 1, art. 7, p. 1–63, 2024. DOI: 10.1145/3680463.
+- UNIÃO EUROPEIA. Parlamento Europeu e Conselho. [Regulamento (UE) 2016/679, de 27 de abril de 2016](https://eur-lex.europa.eu/eli/reg/2016/679): relativo à proteção das pessoas singulares no que diz respeito ao tratamento de dados pessoais e à livre circulação desses dados, e que revoga a Diretiva 95/46/CE (Regulamento Geral sobre a Proteção de Dados). *Jornal Oficial da União Europeia*, L 119, p. 1–88, 4 maio 2016. Acesso em: 10 nov. 2026.
+- VASWANI, A. et al. [Attention is all you need](https://proceedings.neurips.cc/paper_files/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html). In: ADVANCES IN NEURAL INFORMATION PROCESSING SYSTEMS, 30., 2017, Long Beach. *Proceedings [...]*. 2017. p. 5998–6008.
+- WANG, L. et al. [A survey on large language model based autonomous agents](https://doi.org/10.1007/s11704-024-40231-1). *Frontiers of Computer Science*, v. 18, n. 6, art. 186345, 2024. DOI: 10.1007/s11704-024-40231-1.
+- WILCOXON, F. [Individual comparisons by ranking methods](https://doi.org/10.2307/3001968). *Biometrics Bulletin*, v. 1, n. 6, p. 80–83, 1945. DOI: 10.2307/3001968.
+
+### Como as fontes se relacionam com o estudo
+
+| Uso no estudo | Fontes e contribuição |
 |---|---|
-| Marco temporal | [Regulamento (UE) 2016/679, art. 99(2)](https://eur-lex.europa.eu/eli/reg/2016/679), que estabelece 25/05/2018 como data de aplicação. |
-| Proveniência de tópicos | Gonzalez, Zimmermann e Nagappan (2020), [MSR 2020](https://doi.org/10.1145/3379597.3387473), e Openja et al. (2024), [TOSEM](https://doi.org/10.1145/3680463). Eles não definem os 24 termos nem os limiares deste protocolo. |
-| Apoio conceitual aos termos adicionais | Kumar (2024), [LLMs](https://doi.org/10.1007/s10462-024-10888-y); Vaswani et al. (2017), [Transformers](https://arxiv.org/abs/1706.03762); Feuerriegel et al. (2024), [IA generativa](https://doi.org/10.1007/s12599-023-00834-7); Ho et al. (2020), [difusão](https://arxiv.org/abs/2006.11239); Lewis et al. (2020), [RAG](https://proceedings.neurips.cc/paper/2020/hash/6b493230205f780e1bc26945df7481e5-Abstract.html); Wang et al. (2024), [agentes](https://doi.org/10.1007/s11704-024-40231-1). |
-| Métodos estatísticos | McNemar (1947), [teste para proporções correlacionadas](https://doi.org/10.1007/BF02295996); Wilcoxon (1945), [comparações por postos](https://doi.org/10.2307/3001968); Efron (1979), [bootstrap](https://doi.org/10.1214/aos/1176344552). |
+| Marco temporal | O art. 99(2) do Regulamento (UE) 2016/679 estabelece 25/05/2018 como data de aplicação. |
+| Proveniência dos tópicos | Gonzalez, Zimmermann e Nagappan (2020) fundamentam a origem histórica de natural-language-processing; Openja et al. (2024) enumeram 12 etiquetas. Nenhum dos dois define os 24 termos nem os limiares deste protocolo. |
+| Apoio conceitual | Kumar, Vaswani, Feuerriegel, Ho, Lewis e Wang apoiam a interpretação dos dez termos adicionais; não são a origem histórica de sua seleção. |
+| RQ1 — presença de documentação | McNemar (1947) fundamenta o teste pareado para o indicador binário D1. |
+| RQ2 — abrangência documental | Wilcoxon (1945) fundamenta a comparação pareada do PDE Score. |
+| Intervalo para a mediana | Efron (1979) fundamenta o método bootstrap usado na análise. |
+
+Essas fontes apoiam conceitos e métodos específicos. Os critérios C1–C7, o PDE Score, a seleção dos repositórios e os limiares são decisões operacionais deste experimento, não uma avaliação jurídica de conformidade.
 
 ## Apoio
 
